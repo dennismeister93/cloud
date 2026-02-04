@@ -331,22 +331,12 @@ export async function handlePreviewProxy(
       const response = await sandbox.containerFetch(proxyRequest, port);
 
       // Inject preview bridge script into HTML responses for URL tracking
+      // Uses HTMLRewriter for streaming transformation (avoids buffering entire response)
       const contentType = response.headers.get('content-type');
       if (contentType?.includes('text/html')) {
-        const html = await response.text();
-
         // Generate a base64 nonce for CSP-safe script injection
         const nonce = generateCSPNonce();
         const bridgeScript = getPreviewBridgeScript(nonce);
-
-        let modifiedHtml: string;
-        if (html.includes('</head>')) {
-          modifiedHtml = html.replace('</head>', `${bridgeScript}</head>`);
-        } else if (html.includes('<body')) {
-          modifiedHtml = html.replace(/<body([^>]*)>/, `<body$1>${bridgeScript}`);
-        } else {
-          modifiedHtml = bridgeScript + html;
-        }
 
         const newHeaders = new Headers(response.headers);
         newHeaders.delete('content-length');
@@ -365,7 +355,39 @@ export async function handlePreviewProxy(
           );
         }
 
-        return new Response(modifiedHtml, {
+        // Track whether we've injected the script (only inject once)
+        let injected = false;
+
+        const rewriter = new HTMLRewriter()
+          // Prefer injecting at end of <head> (best practice for scripts)
+          .on('head', {
+            element(element) {
+              if (!injected) {
+                element.append(bridgeScript, { html: true });
+                injected = true;
+              }
+            },
+          })
+          // Fallback: inject at start of <body> if no <head>
+          .on('body', {
+            element(element) {
+              if (!injected) {
+                element.prepend(bridgeScript, { html: true });
+                injected = true;
+              }
+            },
+          })
+          // Final fallback: append to document end if no <head> or <body>
+          .onDocument({
+            end(end) {
+              if (!injected) {
+                end.append(bridgeScript, { html: true });
+              }
+            },
+          });
+
+        const transformedResponse = rewriter.transform(response);
+        return new Response(transformedResponse.body, {
           status: response.status,
           statusText: response.statusText,
           headers: newHeaders,
