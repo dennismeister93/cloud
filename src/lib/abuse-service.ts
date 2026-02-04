@@ -4,7 +4,6 @@
 
 import { type NextRequest } from 'next/server';
 import {
-  ABUSE_SERVICE_SECRET,
   ABUSE_SERVICE_CF_ACCESS_CLIENT_ID,
   ABUSE_SERVICE_CF_ACCESS_CLIENT_SECRET,
   ABUSE_SERVICE_URL,
@@ -204,18 +203,12 @@ export async function classifyRequest(
     return null;
   }
 
-  if (!ABUSE_SERVICE_SECRET) {
-    console.warn('ABUSE_SERVICE_SECRET not configured, skipping abuse classification');
-    return null;
-  }
-
   try {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      'X-Service-Secret': ABUSE_SERVICE_SECRET,
     };
 
-    // Add Cloudflare Access headers in production (validated at startup in config.server.ts)
+    // Add Cloudflare Access headers for authentication
     if (ABUSE_SERVICE_CF_ACCESS_CLIENT_ID && ABUSE_SERVICE_CF_ACCESS_CLIENT_SECRET) {
       headers['CF-Access-Client-Id'] = ABUSE_SERVICE_CF_ACCESS_CLIENT_ID;
       headers['CF-Access-Client-Secret'] = ABUSE_SERVICE_CF_ACCESS_CLIENT_SECRET;
