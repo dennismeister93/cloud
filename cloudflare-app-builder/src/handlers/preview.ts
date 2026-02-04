@@ -5,6 +5,93 @@ import type { PreviewDO } from '../preview-do';
 import { getSandbox } from '@cloudflare/sandbox';
 import { switchPort } from '@cloudflare/containers';
 
+/**
+ * Adds a nonce to the script-src directive of a CSP header.
+ * If script-src doesn't exist, creates it based on default-src.
+ * Returns the modified CSP string.
+ */
+function addNonceToCSP(csp: string, nonce: string): string {
+  const nonceValue = `'nonce-${nonce}'`;
+  const directives = csp
+    .split(';')
+    .map(d => d.trim())
+    .filter(Boolean);
+
+  const directiveMap = new Map<string, string>();
+  for (const directive of directives) {
+    const spaceIndex = directive.indexOf(' ');
+    if (spaceIndex === -1) {
+      directiveMap.set(directive.toLowerCase(), '');
+    } else {
+      const name = directive.slice(0, spaceIndex).toLowerCase();
+      const value = directive.slice(spaceIndex + 1);
+      directiveMap.set(name, value);
+    }
+  }
+
+  if (directiveMap.has('script-src')) {
+    const current = directiveMap.get('script-src') ?? '';
+    directiveMap.set('script-src', `${current} ${nonceValue}`);
+  } else if (directiveMap.has('default-src')) {
+    // Create script-src from default-src and add nonce
+    const defaultSrc = directiveMap.get('default-src') ?? '';
+    directiveMap.set('script-src', `${defaultSrc} ${nonceValue}`);
+  } else {
+    // No script-src or default-src, add script-src with nonce
+    directiveMap.set('script-src', nonceValue);
+  }
+
+  // Reconstruct CSP string
+  const result: string[] = [];
+  for (const [name, value] of directiveMap) {
+    result.push(value ? `${name} ${value}` : name);
+  }
+  return result.join('; ');
+}
+
+/**
+ * Bridge script injected into HTML responses to enable URL tracking.
+ * Sends navigation events to the parent window via postMessage.
+ * Validates message origins before navigating to prevent unauthorized control.
+ * Note: The nonce attribute is added dynamically at injection time.
+ */
+const PREVIEW_BRIDGE_SCRIPT = `<script data-kilo-preview-bridge>
+(function() {
+  var send = function() {
+    window.parent.postMessage({
+      type: 'kilo-preview-navigation',
+      url: window.location.href,
+      pathname: window.location.pathname
+    }, '*');
+  };
+  send();
+  var wrap = function(fn) {
+    return function() {
+      var result = fn.apply(this, arguments);
+      send();
+      return result;
+    };
+  };
+  history.pushState = wrap(history.pushState);
+  history.replaceState = wrap(history.replaceState);
+  window.addEventListener('popstate', send);
+  window.addEventListener('message', function(e) {
+    // Validate origin: only accept navigation commands from the parent window
+    // and only navigate to URLs on the same origin as the current page
+    if (e.data && e.data.type === 'kilo-preview-navigate' && e.source === window.parent) {
+      try {
+        var targetUrl = new URL(e.data.url);
+        if (targetUrl.origin === window.location.origin) {
+          window.location.href = e.data.url;
+        }
+      } catch (err) {
+        // Invalid URL, ignore
+      }
+    }
+  });
+})();
+</script>`;
+
 function getPreviewDO(appId: string, env: Env): DurableObjectStub<PreviewDO> {
   const id = env.PREVIEW.idFromName(appId);
   return env.PREVIEW.get(id);
@@ -28,7 +115,13 @@ export async function handleGetPreviewStatus(
     const previewStub = getPreviewDO(appId, env);
     const { state, error } = await previewStub.getStatus();
 
-    const previewUrl = state === 'running' ? `https://${appId}.${env.BUILDER_HOSTNAME}` : null;
+    // In dev mode, return URL without subdomain (worker routes based on last accessed project)
+    const previewUrl =
+      state === 'running'
+        ? env.DEV_MODE
+          ? `https://${env.BUILDER_HOSTNAME}`
+          : `https://${appId}.${env.BUILDER_HOSTNAME}`
+        : null;
 
     return new Response(
       JSON.stringify({
@@ -205,6 +298,52 @@ export async function handlePreviewProxy(
 
     try {
       const response = await sandbox.containerFetch(proxyRequest, port);
+
+      // Inject preview bridge script into HTML responses for URL tracking
+      const contentType = response.headers.get('content-type');
+      if (contentType?.includes('text/html')) {
+        const html = await response.text();
+
+        // Generate a nonce for CSP-safe script injection
+        const nonce = crypto.randomUUID();
+        const scriptWithNonce = PREVIEW_BRIDGE_SCRIPT.replace(
+          '<script data-kilo-preview-bridge>',
+          `<script nonce="${nonce}" data-kilo-preview-bridge>`
+        );
+
+        let modifiedHtml: string;
+        if (html.includes('</head>')) {
+          modifiedHtml = html.replace('</head>', `${scriptWithNonce}</head>`);
+        } else if (html.includes('<body')) {
+          modifiedHtml = html.replace(/<body([^>]*)>/, `<body$1>${scriptWithNonce}`);
+        } else {
+          modifiedHtml = scriptWithNonce + html;
+        }
+
+        const newHeaders = new Headers(response.headers);
+        newHeaders.delete('content-length');
+        newHeaders.delete('content-encoding');
+
+        // Modify CSP headers to allow our nonced script
+        const csp = response.headers.get('content-security-policy');
+        if (csp) {
+          newHeaders.set('content-security-policy', addNonceToCSP(csp, nonce));
+        }
+        const cspReportOnly = response.headers.get('content-security-policy-report-only');
+        if (cspReportOnly) {
+          newHeaders.set(
+            'content-security-policy-report-only',
+            addNonceToCSP(cspReportOnly, nonce)
+          );
+        }
+
+        return new Response(modifiedHtml, {
+          status: response.status,
+          statusText: response.statusText,
+          headers: newHeaders,
+        });
+      }
+
       return response;
     } catch (error) {
       logger.error('Container proxy error', formatError(error));
