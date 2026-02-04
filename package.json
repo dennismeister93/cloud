@@ -41,8 +41,8 @@
     "@ai-sdk/gateway": "^3.0.16",
     "@ai-sdk/mistral": "^2.0.23",
     "@ai-sdk/openai": "^2.0.52",
-    "@aws-sdk/client-s3": "^3.933.0",
-    "@aws-sdk/s3-request-presigner": "^3.933.0",
+    "@aws-sdk/client-s3": "^3.980.0",
+    "@aws-sdk/s3-request-presigner": "^3.980.0",
     "@lottiefiles/dotlottie-react": "^0.17.6",
     "@mdx-js/loader": "^3.1.1",
     "@mdx-js/react": "^3.1.1",
@@ -103,7 +103,7 @@
     "jotai-minidb": "^0.0.8",
     "js-cookie": "^3.0.5",
     "js-yaml": "^4.1.1",
-    "jsonwebtoken": "^9.0.2",
+    "jsonwebtoken": "^9.0.3",
     "lucide-react": "^0.552.0",
     "motion": "^12.23.24",
     "next": "^15.5.10",
@@ -179,7 +179,8 @@
     "overrides": {
       "mdast-util-to-hast": "^13.2.1",
       "storybook": "^9.1.17",
-      "next": "^15.5.10"
+      "next": "^15.5.10",
+      "preact": "10.28.3"
     }
   }
 }
