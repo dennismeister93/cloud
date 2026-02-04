@@ -37,7 +37,7 @@ app.get('/health', (c: Context<HonoContext>) => {
 
 app.get('/stream', async (c: Context<HonoContext>) => {
   const upgradeHeader = c.req.header('Upgrade');
-  if (upgradeHeader !== 'websocket') {
+  if (upgradeHeader?.toLowerCase() !== 'websocket') {
     return c.text('Expected WebSocket upgrade', 426);
   }
 
@@ -86,7 +86,7 @@ app.get('/stream', async (c: Context<HonoContext>) => {
 
 app.all('/sessions/:userId/:sessionId/ingest', async (c: Context<HonoContext>) => {
   const upgradeHeader = c.req.header('Upgrade');
-  if (upgradeHeader !== 'websocket') {
+  if (upgradeHeader?.toLowerCase() !== 'websocket') {
     return c.text('Expected WebSocket upgrade', 426);
   }
 
