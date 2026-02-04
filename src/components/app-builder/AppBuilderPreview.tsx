@@ -120,7 +120,7 @@ type PreviewFrameProps = {
   iframeRef: React.RefObject<HTMLIFrameElement | null>;
   onRefresh: () => void;
   onGoHome: () => void;
-  onCopyUrl: () => void;
+  onCopyUrl: () => Promise<boolean>;
   onToggleFullscreen: () => void;
   onOpenExternal: () => void;
 };
@@ -139,11 +139,26 @@ function PreviewControls({
   onOpenExternal,
 }: Omit<PreviewFrameProps, 'url' | 'iframeRef'>) {
   const [copied, setCopied] = useState(false);
+  const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleCopy = useCallback(() => {
-    onCopyUrl();
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+  // Clear timeout on unmount to prevent setState on unmounted component
+  useEffect(() => {
+    return () => {
+      if (copyTimeoutRef.current) {
+        clearTimeout(copyTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const handleCopy = useCallback(async () => {
+    const success = await onCopyUrl();
+    if (success) {
+      setCopied(true);
+      if (copyTimeoutRef.current) {
+        clearTimeout(copyTimeoutRef.current);
+      }
+      copyTimeoutRef.current = setTimeout(() => setCopied(false), 1500);
+    }
   }, [onCopyUrl]);
 
   return (
@@ -480,31 +495,38 @@ export const AppBuilderPreview = memo(function AppBuilderPreview({
   const handleOpenExternal = useCallback(() => {
     const urlToOpen = currentIframeUrl || previewUrl;
     if (urlToOpen) {
-      window.open(urlToOpen, '_blank');
+      window.open(urlToOpen, '_blank', 'noopener,noreferrer');
     }
   }, [currentIframeUrl, previewUrl]);
 
   const handleGoHome = useCallback(() => {
     if (previewUrl && iframeRef.current?.contentWindow) {
-      const baseUrl = new URL(previewUrl);
-      baseUrl.pathname = '/';
-      baseUrl.search = '';
-      iframeRef.current.contentWindow.postMessage(
-        { type: 'kilo-preview-navigate', url: baseUrl.toString() },
-        baseUrl.origin
-      );
+      try {
+        const baseUrl = new URL(previewUrl);
+        baseUrl.pathname = '/';
+        baseUrl.search = '';
+        iframeRef.current.contentWindow.postMessage(
+          { type: 'kilo-preview-navigate', url: baseUrl.toString() },
+          baseUrl.origin
+        );
+      } catch {
+        // Invalid previewUrl, ignore
+      }
     }
   }, [previewUrl]);
 
-  const handleCopyUrl = useCallback(async () => {
+  const handleCopyUrl = useCallback(async (): Promise<boolean> => {
     const urlToCopy = currentIframeUrl || previewUrl;
     if (urlToCopy) {
       try {
         await navigator.clipboard.writeText(urlToCopy);
+        return true;
       } catch {
         toast.error('Failed to copy URL to clipboard');
+        return false;
       }
     }
+    return false;
   }, [currentIframeUrl, previewUrl]);
 
   // Handle deploy using ProjectManager

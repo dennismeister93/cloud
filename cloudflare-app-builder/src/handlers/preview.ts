@@ -6,8 +6,32 @@ import { getSandbox } from '@cloudflare/sandbox';
 import { switchPort } from '@cloudflare/containers';
 
 /**
+ * Generates a cryptographically secure base64-encoded nonce for CSP.
+ * Uses 16 random bytes (128 bits) encoded as base64.
+ */
+function generateCSPNonce(): string {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return btoa(String.fromCharCode(...bytes));
+}
+
+/**
+ * Adds a nonce to a CSP directive value.
+ * Handles the special case where 'none' is present (must be replaced, not appended).
+ */
+function addNonceToDirective(value: string, nonceValue: string): string {
+  // If directive contains 'none', replace it with the nonce (since 'none' must be alone)
+  if (value.includes("'none'")) {
+    return value.replace("'none'", nonceValue);
+  }
+  return `${value} ${nonceValue}`;
+}
+
+/**
  * Adds a nonce to the script-src directive of a CSP header.
+ * Also updates script-src-elem if present (since it takes precedence for <script> tags).
  * If script-src doesn't exist, creates it based on default-src.
+ * Handles 'none' by replacing it (since 'none' cannot be combined with other sources).
  * Returns the modified CSP string.
  */
 function addNonceToCSP(csp: string, nonce: string): string {
@@ -31,14 +55,20 @@ function addNonceToCSP(csp: string, nonce: string): string {
 
   if (directiveMap.has('script-src')) {
     const current = directiveMap.get('script-src') ?? '';
-    directiveMap.set('script-src', `${current} ${nonceValue}`);
+    directiveMap.set('script-src', addNonceToDirective(current, nonceValue));
   } else if (directiveMap.has('default-src')) {
     // Create script-src from default-src and add nonce
     const defaultSrc = directiveMap.get('default-src') ?? '';
-    directiveMap.set('script-src', `${defaultSrc} ${nonceValue}`);
+    directiveMap.set('script-src', addNonceToDirective(defaultSrc, nonceValue));
   } else {
     // No script-src or default-src, add script-src with nonce
     directiveMap.set('script-src', nonceValue);
+  }
+
+  // Also update script-src-elem if present (takes precedence over script-src for <script> tags)
+  if (directiveMap.has('script-src-elem')) {
+    const current = directiveMap.get('script-src-elem') ?? '';
+    directiveMap.set('script-src-elem', addNonceToDirective(current, nonceValue));
   }
 
   // Reconstruct CSP string
@@ -50,12 +80,12 @@ function addNonceToCSP(csp: string, nonce: string): string {
 }
 
 /**
- * Bridge script injected into HTML responses to enable URL tracking.
- * Sends navigation events to the parent window via postMessage.
+ * Generates the bridge script tag with the given nonce for CSP compliance.
+ * The script enables URL tracking by sending navigation events to the parent window.
  * Validates message origins before navigating to prevent unauthorized control.
- * Note: The nonce attribute is added dynamically at injection time.
  */
-const PREVIEW_BRIDGE_SCRIPT = `<script data-kilo-preview-bridge>
+function getPreviewBridgeScript(nonce: string): string {
+  return `<script nonce="${nonce}" data-kilo-preview-bridge>
 (function() {
   var send = function() {
     window.parent.postMessage({
@@ -91,6 +121,7 @@ const PREVIEW_BRIDGE_SCRIPT = `<script data-kilo-preview-bridge>
   });
 })();
 </script>`;
+}
 
 function getPreviewDO(appId: string, env: Env): DurableObjectStub<PreviewDO> {
   const id = env.PREVIEW.idFromName(appId);
@@ -304,20 +335,17 @@ export async function handlePreviewProxy(
       if (contentType?.includes('text/html')) {
         const html = await response.text();
 
-        // Generate a nonce for CSP-safe script injection
-        const nonce = crypto.randomUUID();
-        const scriptWithNonce = PREVIEW_BRIDGE_SCRIPT.replace(
-          '<script data-kilo-preview-bridge>',
-          `<script nonce="${nonce}" data-kilo-preview-bridge>`
-        );
+        // Generate a base64 nonce for CSP-safe script injection
+        const nonce = generateCSPNonce();
+        const bridgeScript = getPreviewBridgeScript(nonce);
 
         let modifiedHtml: string;
         if (html.includes('</head>')) {
-          modifiedHtml = html.replace('</head>', `${scriptWithNonce}</head>`);
+          modifiedHtml = html.replace('</head>', `${bridgeScript}</head>`);
         } else if (html.includes('<body')) {
-          modifiedHtml = html.replace(/<body([^>]*)>/, `<body$1>${scriptWithNonce}`);
+          modifiedHtml = html.replace(/<body([^>]*)>/, `<body$1>${bridgeScript}`);
         } else {
-          modifiedHtml = scriptWithNonce + html;
+          modifiedHtml = bridgeScript + html;
         }
 
         const newHeaders = new Headers(response.headers);
