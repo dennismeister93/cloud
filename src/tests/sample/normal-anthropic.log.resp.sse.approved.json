@@ -1,0 +1,21 @@
+{
+  "kiloUserId": "fake-user-id",
+  "messageId": "gen-1746899032-NW1gdLDJZoJWsNpa6k17",
+  "hasError": false,
+  "model": "anthropic/claude-3.7-sonnet",
+  "responseContent": "Let me check the providers test file to see if it might be importing the function:\n\n<read_file>\n<path>src/tests/providers.test.ts</path>\n</read_file>",
+  "inference_provider": "Google",
+  "finish_reason": "stop",
+  "upstream_id": null,
+  "latency": null,
+  "moderation_latency": null,
+  "generation_time": null,
+  "streamed": true,
+  "cancelled": null,
+  "inputTokens": 32488,
+  "cacheHitTokens": 31429,
+  "cacheWriteTokens": 0,
+  "outputTokens": 49,
+  "cost_mUsd": 14132,
+  "is_byok": null
+}

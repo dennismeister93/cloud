@@ -1,0 +1,29 @@
+import { openRouterRequest, PROVIDERS } from '../lib/providers';
+
+describe('openRouterRequest timeout', () => {
+  it('should abort after timeout', async () => {
+    // Use a very short timeout for testing by temporarily modifying the function
+    // For a quick manual test, we can verify the signal is properly combined
+
+    const controller = new AbortController();
+
+    // This test verifies that the request respects the abort signal
+    // by immediately aborting and checking the error
+    controller.abort();
+
+    await expect(
+      openRouterRequest({
+        path: '/chat/completions',
+        search: '',
+        method: 'POST',
+        body: {
+          model: 'test-model',
+          messages: [{ role: 'user', content: 'test' }],
+        },
+        extraHeaders: {},
+        provider: PROVIDERS.OPENROUTER,
+        signal: controller.signal,
+      })
+    ).rejects.toThrow();
+  });
+});

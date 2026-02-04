@@ -1,0 +1,60 @@
+'use client';
+
+import { useTRPC } from '@/lib/trpc/utils';
+import { useQuery } from '@tanstack/react-query';
+
+export type FilterParams = {
+  startDate: string;
+  endDate: string;
+  userId?: string;
+  organizationId?: string;
+  ownershipType?: 'all' | 'personal' | 'organization';
+};
+
+export function useCodeReviewOverviewStats(params: FilterParams) {
+  const trpc = useTRPC();
+  return useQuery({
+    ...trpc.admin.codeReviews.getOverviewStats.queryOptions(params),
+    enabled: Boolean(params.startDate && params.endDate),
+  });
+}
+
+export function useCodeReviewDailyStats(params: FilterParams) {
+  const trpc = useTRPC();
+  return useQuery({
+    ...trpc.admin.codeReviews.getDailyStats.queryOptions(params),
+    enabled: Boolean(params.startDate && params.endDate),
+  });
+}
+
+export function useCodeReviewErrorAnalysis(params: FilterParams) {
+  const trpc = useTRPC();
+  return useQuery({
+    ...trpc.admin.codeReviews.getErrorAnalysis.queryOptions(params),
+    enabled: Boolean(params.startDate && params.endDate),
+  });
+}
+
+export function useCodeReviewUserSegmentation(params: FilterParams) {
+  const trpc = useTRPC();
+  return useQuery({
+    ...trpc.admin.codeReviews.getUserSegmentation.queryOptions(params),
+    enabled: Boolean(params.startDate && params.endDate),
+  });
+}
+
+export function useSearchUsers(query: string, enabled: boolean = true) {
+  const trpc = useTRPC();
+  return useQuery({
+    ...trpc.admin.codeReviews.searchUsers.queryOptions({ query }),
+    enabled: enabled && query.length >= 1,
+  });
+}
+
+export function useSearchOrganizations(query: string, enabled: boolean = true) {
+  const trpc = useTRPC();
+  return useQuery({
+    ...trpc.admin.codeReviews.searchOrganizations.queryOptions({ query }),
+    enabled: enabled && query.length >= 1,
+  });
+}

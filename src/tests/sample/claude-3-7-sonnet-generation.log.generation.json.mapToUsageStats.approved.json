@@ -1,0 +1,21 @@
+{
+  "messageId": "gen-1747139853-DSUQGQgiPRYjBoXZOcFx",
+  "hasError": false,
+  "model": "anthropic/claude-3-7-sonnet-20250219",
+  "responseContent": "nonsense",
+  "inputTokens": 33439,
+  "cacheHitTokens": 0,
+  "cacheWriteTokens": 0,
+  "outputTokens": 251,
+  "cost_mUsd": 129158,
+  "is_byok": false,
+  "cacheDiscount_mUsd": -25076,
+  "inference_provider": "Amazon Bedrock",
+  "upstream_id": null,
+  "finish_reason": "stop",
+  "latency": 7913,
+  "moderation_latency": null,
+  "generation_time": 7793,
+  "streamed": true,
+  "cancelled": false
+}

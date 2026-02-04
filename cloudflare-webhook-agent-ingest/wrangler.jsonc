@@ -1,0 +1,185 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // NOTE: Base config is for PRODUCTION environment
+  // Use --env dev for development deployments
+  "name": "cloudflare-webhook-agent-ingest",
+  "account_id": "e115e769bcdd4c3d66af59d3332cb394",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-09-27",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "dev": {
+    "port": 8793,
+    "local_protocol": "http",
+    "ip": "0.0.0.0",
+  },
+  // Observability - enables Workers Logs
+  "observability": {
+    "enabled": true,
+  },
+  "logpush": true,
+  "version_metadata": {
+    "binding": "CF_VERSION_METADATA",
+  },
+  "routes": [
+    {
+      "pattern": "hooks.kilosessions.ai",
+      "custom_domain": true,
+    },
+  ],
+  "vars": {
+    "ENVIRONMENT": "production",
+    "KILOCODE_BACKEND_BASE_URL": "https://api.kilo.ai",
+    "WEBHOOK_AGENT_URL": "https://hooks.kilosessions.ai",
+  },
+  // PRODUCTION service binding to cloud-agent worker
+  "services": [
+    {
+      "binding": "CLOUD_AGENT",
+      "service": "cloud-agent",
+    },
+  ],
+  // PRODUCTION Queue for webhook delivery
+  "queues": {
+    "producers": [
+      {
+        "binding": "WEBHOOK_DELIVERY_QUEUE",
+        "queue": "webhook-delivery",
+      },
+    ],
+    "consumers": [
+      {
+        "queue": "webhook-delivery",
+        "max_batch_size": 10,
+        "max_batch_timeout": 30,
+        "max_retries": 3,
+      },
+    ],
+  },
+  // Durable Objects
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "TRIGGER_DO",
+        "class_name": "TriggerDO",
+      },
+    ],
+  },
+  "kv_namespaces": [
+    {
+      "binding": "WEBHOOK_TOKEN_CACHE",
+      "id": "955e2717898c4ebabfece28a6b107940",
+    },
+  ],
+  // Hyperdrive binding for direct database access (token minting)
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "624ec80650dd414199349f4e217ddb10",
+    },
+  ],
+  // DO migrations
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["CatcherDO"],
+    },
+    {
+      "tag": "v2",
+      "new_sqlite_classes": ["TriggerDO"],
+      "deleted_classes": ["CatcherDO"],
+    },
+  ],
+  // PRODUCTION Secrets Store (shared Kilo secrets store)
+  "secrets_store_secrets": [
+    {
+      "binding": "INTERNAL_API_SECRET",
+      "store_id": "342a86d9e3a94da698e82d0c6e2a36f0",
+      "secret_name": "INTERNAL_API_SECRET_PROD",
+    },
+    {
+      "binding": "NEXTAUTH_SECRET",
+      "store_id": "342a86d9e3a94da698e82d0c6e2a36f0",
+      "secret_name": "NEXTAUTH_SECRET_PROD",
+    },
+  ],
+  // ============================================
+  // DEVELOPMENT ENVIRONMENT
+  // Deploy with: wrangler deploy --env dev
+  // This creates a SEPARATE worker: cloudflare-webhook-agent-dev
+  // ============================================
+  "env": {
+    "dev": {
+      "name": "cloudflare-webhook-agent-ingest-dev",
+      "workers_dev": true,
+      "version_metadata": {
+        "binding": "CF_VERSION_METADATA",
+      },
+      "vars": {
+        "ENVIRONMENT": "development",
+        "KILOCODE_BACKEND_BASE_URL": "http://localhost:3000",
+        "WEBHOOK_AGENT_URL": "http://localhost:8793",
+      },
+      // DEV service binding to cloud-agent-dev worker
+      "services": [
+        {
+          "binding": "CLOUD_AGENT",
+          "service": "cloud-agent-dev",
+        },
+      ],
+      // DEV Queue (separate from production)
+      "queues": {
+        "producers": [
+          {
+            "binding": "WEBHOOK_DELIVERY_QUEUE",
+            "queue": "webhook-delivery-dev",
+          },
+        ],
+        "consumers": [
+          {
+            "queue": "webhook-delivery-dev",
+            "max_batch_size": 10,
+            "max_batch_timeout": 30,
+            "max_retries": 3,
+          },
+        ],
+      },
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "TRIGGER_DO",
+            "class_name": "TriggerDO",
+            "script_name": "cloudflare-webhook-agent-ingest-dev",
+          },
+        ],
+      },
+      // DEV Secrets Store
+      "secrets_store_secrets": [
+        {
+          "binding": "INTERNAL_API_SECRET",
+          "store_id": "342a86d9e3a94da698e82d0c6e2a36f0",
+          "secret_name": "INTERNAL_API_SECRET_DEV",
+        },
+        {
+          "binding": "NEXTAUTH_SECRET",
+          "store_id": "342a86d9e3a94da698e82d0c6e2a36f0",
+          "secret_name": "NEXTAUTH_SECRET_DEV",
+        },
+      ],
+      "kv_namespaces": [
+        {
+          "binding": "WEBHOOK_TOKEN_CACHE",
+          "id": "08db0a0f683a48b0a665c3fb02dc099b",
+        },
+      ],
+      // DEV Hyperdrive binding with local connection string
+      "hyperdrive": [
+        {
+          "binding": "HYPERDRIVE",
+          "id": "624ec80650dd414199349f4e217ddb10",
+          "localConnectionString": "postgres://postgres:postgres@localhost:5432/postgres",
+        },
+      ],
+    },
+  },
+}

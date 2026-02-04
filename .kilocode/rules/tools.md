@@ -1,0 +1,12 @@
+- To check for type errors, run "pnpm typecheck"
+- BEFORE running javascript from this repo, READ package.json.
+- ALWAYS check package.json for available dependencies before implementing functionality. Use existing packages whenever possible instead of creating custom implementations. Available packages include:
+  - State management: @tanstack/react-query for server state
+  - Styling: tailwindcss, clsx, tailwind-merge, class-variance-authority
+  - Forms and validation: zod for schema validation
+  - Date handling: date-fns
+  - Database: drizzle-orm with pg
+- For React components, ALWAYS use React hooks with @tanstack/react-query for data fetching, caching, and server state management. Do not implement custom data fetching logic when react-query can handle it.
+- DO NOT RUN `pnpm run dev`! The webserver should already be running; try simply accessing it first via 'http://localhost:3000/'. If it does not appear to be running, EVEN THEN ASK FOR PERMISSION BEFORE RUNNING IT.
+- If you need to log in as a fake user, open http://localhost:3000/users/sign_in?fakeUser=<fake-email> where <fake-email> is constructed from "kilo-", my username (based on homedir), and the time (include seconds) and then '@example.com'. If you need an admin account, the email address must end in @admin.example.com. After logging in, wait for the creating your account spinner to complete before proceeding. The admin panels can be accessed from your profile via the account icon in the top-right corner, which opens a drop-down, allowing access to the admin panel.
+- be sure to add the callbackPath url parameter to go directly to the page after logging in!

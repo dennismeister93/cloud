@@ -1,0 +1,85 @@
+{
+  "model": "anthropic/claude-3.7-sonnet",
+  "max_tokens": 64000,
+  "temperature": 0,
+  "messages": [
+    {
+      "role": "system",
+      "content": [
+        {
+          "type": "text",
+          "text": "You are Kilo Code, a knowledgeable technical assistant focused on answering questions and providing information about software development, technology, and related topics.\n\n====\n\nTEST_PROMPT",
+          "cache_control": {
+            "type": "ephemeral"
+          }
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "<task>\n'tsconfig.json' Is this file correct, given the fact that it's a nextjs application?  Are the settings compatible with whatever other relevant config files there are?\n</task>\n\n<file_content path=\"tsconfig.json\">\n 1 | {\n 2 |   \"compilerOptions\": {\n 3 |     \"target\": \"es2017\"\n4 |   },\n5 | }\n\n</file_content>"
+        },
+        {
+          "type": "text",
+          "text": "<environment_details>\n# VSCode Visible Files\nsrc/lib/requestSemaphore.ts,tsconfig.json\n\n# VSCode Open Tabs\nsrc/middleware.ts,src/lib/tokens.ts,node_modules/@types/node/globals.d.ts,src/entities/PaymentMethod.ts,src/entities/RequestSemaphore.ts\n\n# Current Time\n5/12/2025, 2:09:38 PM (Europe/Amsterdam, UTC+2:00)\n\n# Current Context Size (Tokens)\n(Not available)\n\n# Current Cost\n$0.00\n\n# Current Mode\n<slug>ask</slug>\n<name>Ask</name>\n<model>Claude 3.7 Sonnet</model>\n\n\nNOTE: You are currently in 'Ask' mode, which does not allow write operations. To write files, the user will need to switch to a mode that supports file writing, such as 'Code' mode.\n\n# Current Workspace Directory (/Users/x/Documents/VCS/kilocode-backend) Files\n.env.development\n.env.development.local.example\n</environment_details>"
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": "<thinking>\nI need to analyze the provided `tsconfig.json` file to determine if it's correctly configured for a Next.js application. I should also check if there are any compatibility issues with other configuration files in the project.\n\nFirst, let me understand what I'm looking at:\n1. The `tsconfig.json` file contains TypeScript compiler options\n2. I need to verify if these settings are appropriate for a Next.js application\n3. I need to check compatibility with other config files\n\nLet me examine the key settings in the provided tsconfig.json:\n\n- `target: \"es2017\"` - This specifies the ECMAScript target version\n- `module: \"es2022\"` - This specifies the module code generation\n- `moduleResolution: \"bundler\"` - This is using the bundler resolution strategy\n- `jsx: \"preserve\"` - This preserves JSX for Next.js to transform\n- `plugins: [{ \"name\": \"next\" }]` - This includes the Next.js TypeScript plugin\n- `noEmit: true` - This prevents TypeScript from generating output files (Next.js handles this)\n- `include: [\"src/**/*\", \".next/types/**/*.ts\"]` - This includes source files and Next.js generated types\n\nI should check for other configuration files in the project to ensure compatibility. Based on the environment details, I can see:\n\n- `next.config.mjs` - Next.js configuration file\n- `package.json` - Contains dependencies and scripts\n- `.env.development` and `.env.development.local` - Environment variables\n\nLet me use the read_file tool to examine these files for compatibility checks.\n</thinking>\n\nI'll analyze the `tsconfig.json` file to determine if it's correctly configured for a Next.js application and check for compatibility with other relevant configuration files.\n\nLet me first look at the Next.js configuration file:\n\n<read_file>\n<path>next.config.mjs</path>\n</read_file>"
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "[read_file for 'next.config.mjs'] Result:"
+        },
+        {
+          "type": "text",
+          "text": "<file><path>next.config.mjs</path>\n<content lines=\"1-91\">\n 1 | import createMDX from '@next/mdx';\n 2 | \n 3 | /** @type {import('next').NextConfig} */\n 4 | const nextConfig = {\n 5 |   // Copy your existing configuration from next.config.ts here\n 6 |   // Remove any TypeScript-specific syntax\n 7 |   env: {\n 8 |     NEXT_PUBLIC_STYTCH_PUBLIC_TOKEN: process.env.STYTCH_PUBLIC_TOKEN,\n 9 |   },\n10 |   reactStrictMode: true,\n11 |   async redirects() {\n12 |     return [];\n13 |   },\n14 |   async rewrites() {\n15 |     return [\n16 |       {\n17 |         source: '/ingest/static/:path*',\n18 |         destination: 'https://us-assets.i.posthog.com/static/:path*',\n19 |       },\n20 |       {\n21 |         source: '/ingest/:path*',\n22 |         destination: 'https://us.i.posthog.com/:path*',\n23 |       },\n24 |       {\n25 |         source: '/ingest/decide',\n26 |         destination: 'https://us.i.posthog.com/decide',\n27 |       },\n28 |       {\n29 |         source: '/docs/:path*',\n30 |         destination: 'https://kilocode-docs.vercel.app/:path*',\n31 |       },\n32 |       {\n33 |         source: '/discord',\n34 |         destination: 'https://discord.gg/Ja6BkfyTzJ',\n35 |       },\n36 |       {\n37 |         source: '/github',\n38 |         destination: 'https://github.com/Kilo-Org/kilocode',\n39 |       },\n40 |     ];\n41 |   },\n42 |   // This is required to support PostHog trailing slash API requests\n43 |   skipTrailingSlashRedirect: true,\n44 | \n45 |   // Configure `pageExtensions` to include markdown and MDX files\n46 |   pageExtensions: ['js', 'jsx', 'md', 'mdx', 'ts', 'tsx'],\n47 | \n48 |   // Disable static generation for API routes that use headers\n49 |   // This prevents the \"Dynamic server usage\" error\n50 |   serverExternalPackages: ['typeorm'],\n51 | \n52 |   // Disable built-in ESLint integration\n53 |   eslint: {\n54 |     ignoreDuringBuilds: true,\n55 |   },\n56 | \n57 |   // Configure webpack to suppress warnings\n58 |   webpack: (config, { _dev, _isServer }) => {\n59 |     // Suppress webpack warnings for MDX loader\n60 |     config.infrastructureLogging = {\n61 |       level: 'error', // Only show errors, not warnings\n62 |     };\n63 | \n64 |     return config;\n65 |   },\n66 | \n67 |   images: {\n68 |     dangerouslyAllowSVG: true,\n69 |     contentDispositionType: 'attachment',\n70 |     contentSecurityPolicy: \"default-src 'self'; script-src 'none'; sandbox;\",\n71 |     remotePatterns: [\n72 |       {\n73 |         protocol: \"https\",\n74 |         hostname: \"lh3.googleusercontent.com\",\n75 |         port: \"\",\n76 |         pathname: '/*/**',\n77 |       }\n78 |     ]\n79 |   }\n80 | };\n81 | \n82 | const withMDX = createMDX({\n83 |   // Add markdown plugins here, as desired\n84 |   options: {\n85 |     remarkPlugins: [],\n86 |     rehypePlugins: [],\n87 |   },\n88 | });\n89 | \n90 | // Merge MDX config with Next.js config\n91 | export default withMDX(nextConfig);\n</content>\n</file>"
+        },
+        {
+          "type": "text",
+          "text": "<environment_details>\n# VSCode Visible Files\nsrc/tests/openrouter-models.test.ts,src/tests/openrouter-models.test.ts,../../../../../161,src/tests/parseMicrodollarUsageFromStream.test.ts,src/tests/openrouter-models.test.ts,src/tests/openrouter-models.test.ts,../../../../../164,src/tests/parseMicrodollarUsageFromStream.test.ts,src/lib/requestSemaphore.ts,tsconfig.json\n\n# VSCode Open Tabs\nsrc/middleware.ts,src/components/dev/DevNukeAccountButton.tsx,src/lib/tokens.ts,node_modules/@types/node/globals.d.ts,src/entities/PaymentMethod.ts,src/entities/RequestSemaphore.ts,src/lib/auth.ts,src/app/api/openrouter/[...path]/route.ts,src/lib/storage.ts,src/components/payment/PaymentActions.tsx,src/lib/stripe.ts,package.json,.env.development,.gitignore,src/app/profile/page.tsx,src/app/globals.css,.env.development.local,.env.development.local.example,src/components/auth/StytchClient.tsx,src/app/privacy/privacy-policy.mdx\n\n# Current Time\n5/12/2025, 2:09:54 PM (Europe/Amsterdam, UTC+2:00)\n\n# Current Context Size (Tokens)\n12,982 (6%)\n\n# Current Cost\n$0.05\n\n# Current Mode\n<slug>ask</slug>\n<name>Ask</name>\n<model>Claude 3.7 Sonnet</model>\n\n\nNOTE: You are currently in 'Ask' mode, which does not allow write operations. To write files, the user will need to switch to a mode that supports file writing, such as 'Code' mode.\n</environment_details>",
+          "cache_control": {
+            "type": "ephemeral"
+          }
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": "Now let me check the package.json file to understand the dependencies and Next.js version:\n\n<read_file>\n<path>package.json</path>\n</read_file>"
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "[read_file for 'package.json'] Result:"
+        },
+        {
+          "type": "text",
+          "text": "<file><path>package.json</path>\n<content lines=\"1-88\">\n 1 | {\n 2 |   \"name\": \"kilocode-backend\",\n 3 |   \"version\": \"0.1.0\",\n 4 |   \"private\": true,\n 5 |   \"scripts\": {\n 6 |     \"dev\": \"next dev\",\n 7 |     \"dev:prod\": \"dotenvx run -f .env.prod -- next dev\",\n 8 |     \"build\": \"export && next build\",\n 9 |     \"start\": \"next start\",\n10 |     \"lint\": \"eslint --config eslint.config.mjs 'src/**'\",\n11 |     \"lint-staged\": \"lint-staged\",\n12 |     \"format\": \"prettier --write \\\"**/*.{js,jsx,ts,tsx,json,css,md}\\\"\",\n13 |     \"format:check\": \"prettier --check \\\"**/*.{js,jsx,ts,tsx,json,css,md}\\\"\",\n14 |     \"test\": \"NODE_ENV=test dotenvx run --convention nextjs -- bun test\",\n15 |     \"typecheck\": \"tsc --noEmit\",\n16 |     \"validate\": \"npm run typecheck && npm run format:check && npm run lint\",\n17 |     \"prepare\": \"husky\",\n18 |     \"typeorm\": \"typeorm-ts-node-esm\",\n19 |     \"db:branch:create\": \"supabase db branch create\",\n20 |     \"db:branch:delete\": \"supabase db branch delete\",\n21 |     \"db:branch:list\": \"supabase db branches\",\n22 |     \"db:branch:switch\": \"supabase db branch switch\"\n23 |   },\n24 |   \"dependencies\": {\n25 |     \"@anthropic-ai/sdk\": \"^0.40.1\",\n26 |     \"@iconify/react\": \"^6.0.0\",\n27 |     \"@mdx-js/loader\": \"^3.1.0\",\n28 |     \"@mdx-js/react\": \"^3.1.0\",\n29 |     \"@next/mdx\": \"^15.3.1\",\n30 |     \"@next/third-parties\": \"^15.3.1\",\n31 |     \"@radix-ui/react-avatar\": \"^1.1.7\",\n32 |     \"@radix-ui/react-dialog\": \"^1.1.13\",\n33 |     \"@radix-ui/react-slot\": \"^1.2.0\",\n34 |     \"@radix-ui/react-tabs\": \"^1.1.11\",\n35 |     \"@supabase/supabase-js\": \"^2.49.4\",\n36 |     \"@types/jsonwebtoken\": \"^9.0.9\",\n37 |     \"@types/mdx\": \"^2.0.13\",\n38 |     \"@types/uuid\": \"^10.0.0\",\n39 |     \"@vercel/functions\": \"^2.0.0\",\n40 |     \"@wistia/wistia-player-react\": \"^0.0.113\",\n41 |     \"class-variance-authority\": \"^0.7.1\",\n42 |     \"clsx\": \"^2.1.1\",\n43 |     \"eventsource-parser\": \"^3.0.1\",\n44 |     \"jose\": \"^6.0.11\",\n45 |     \"lucide-react\": \"^0.503.0\",\n46 |     \"next\": \"^15.3.1\",\n47 |     \"next-auth\": \"^4.24.11\",\n48 |     \"openai\": \"^4.97.0\",\n49 |     \"orb-billing\": \"^4.72.2\",\n50 |     \"pg\": \"^8.15.6\",\n51 |     \"posthog-js\": \"^1.239.1\",\n52 |     \"posthog-node\": \"^4.15.0\",\n53 |     \"react\": \"^19.1.0\",\n54 |     \"react-dom\": \"^19.1.0\",\n55 |     \"reflect-metadata\": \"^0.2.2\",\n56 |     \"stripe\": \"^18.1.0\",\n57 |     \"stytch\": \"^12.19.0\",\n58 |     \"tailwind-merge\": \"^3.2.0\",\n59 |     \"tailwindcss-animate\": \"^1.0.7\",\n60 |     \"typeorm\": \"^0.3.22\",\n61 |     \"typeorm-naming-strategies\": \"^4.1.0\",\n62 |     \"uuid\": \"^11.1.0\"\n63 |   },\n64 |   \"devDependencies\": {\n65 |     \"@dotenvx/dotenvx\": \"^1.43.0\",\n66 |     \"@next/eslint-plugin-next\": \"^15.2.3\",\n67 |     \"@tailwindcss/postcss\": \"^4.1.5\",\n68 |     \"@types/bun\": \"^1.2.11\",\n69 |     \"@types/node\": \"^22.15.3\",\n70 |     \"@types/react\": \"^19.1.2\",\n71 |     \"@types/react-dom\": \"^19.1.3\",\n72 |     \"bun-types\": \"^1.2.5\",\n73 |     \"eslint\": \"^9.25.1\",\n74 |     \"eslint-config-next\": \"^15.3.1\",\n75 |     \"eslint-config-prettier\": \"^10.1.2\",\n76 |     \"husky\": \"^9.1.7\",\n77 |     \"lint-staged\": \"^15.5.1\",\n78 |     \"node-fetch\": \"^3.3.2\",\n79 |     \"open\": \"^10.1.2\",\n80 |     \"postcss\": \"^8.5.3\",\n81 |     \"prettier\": \"^3.5.3\",\n82 |     \"supabase\": \"^2.22.6\",\n83 |     \"tailwindcss\": \"^4.1.5\",\n84 |     \"ts-node\": \"^10.9.2\",\n85 |     \"tw-animate-css\": \"^1.2.8\",\n86 |     \"typescript\": \"^5.8.3\"\n87 |   }\n88 | }\n</content>\n</file>"
+        },
+        {
+          "type": "text",
+          "text": "<environment_details>\n# VSCode Visible Files\nsrc/tests/openrouter-models.test.ts,src/tests/openrouter-models.test.ts,../../../../../161,src/tests/parseMicrodollarUsageFromStream.test.ts,src/tests/openrouter-models.test.ts,src/tests/openrouter-models.test.ts,../../../../../164,src/tests/parseMicrodollarUsageFromStream.test.ts,src/lib/requestSemaphore.ts,tsconfig.json\n\n# VSCode Open Tabs\nsrc/middleware.ts,src/components/dev/DevNukeAccountButton.tsx,src/lib/tokens.ts,node_modules/@types/node/globals.d.ts,src/entities/PaymentMethod.ts,src/entities/RequestSemaphore.ts,src/lib/auth.ts,src/app/api/openrouter/[...path]/route.ts,src/lib/storage.ts,src/components/payment/PaymentActions.tsx,src/lib/stripe.ts,package.json,.env.development,.gitignore,src/app/profile/page.tsx,src/app/globals.css,.env.development.local,.env.development.local.example,src/components/auth/StytchClient.tsx,src/app/privacy/privacy-policy.mdx\n\n# Current Time\n5/12/2025, 2:10:00 PM (Europe/Amsterdam, UTC+2:00)\n\n# Current Context Size (Tokens)\n14,606 (7%)\n\n# Current Cost\n$0.07\n\n# Current Mode\n<slug>ask</slug>\n<name>Ask</name>\n<model>Claude 3.7 Sonnet</model>\n\n\nNOTE: You are currently in 'Ask' mode, which does not allow write operations. To write files, the user will need to switch to a mode that supports file writing, such as 'Code' mode.\n</environment_details>",
+          "cache_control": {
+            "type": "ephemeral"
+          }
+        }
+      ]
+    }
+  ],
+  "stream": true,
+  "stream_options": {
+    "include_usage": true
+  },
+  "transforms": ["middle-out"]
+}

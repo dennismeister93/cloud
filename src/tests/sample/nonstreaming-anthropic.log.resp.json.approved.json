@@ -1,0 +1,21 @@
+{
+  "kiloUserId": "fake-user-id",
+  "messageId": "gen-1746908719-EOs882P7OXcTxxjI5FAp",
+  "hasError": false,
+  "model": "anthropic/claude-3.7-sonnet",
+  "responseContent": "Lorem ipsum dolor sit amet, consectetur adipiscing elit",
+  "inference_provider": "Google",
+  "upstream_id": null,
+  "finish_reason": "stop",
+  "latency": null,
+  "moderation_latency": null,
+  "generation_time": null,
+  "streamed": false,
+  "cancelled": null,
+  "inputTokens": 55,
+  "cacheHitTokens": 0,
+  "cacheWriteTokens": 0,
+  "outputTokens": 84,
+  "cost_mUsd": 1425,
+  "is_byok": null
+}

@@ -1,0 +1,390 @@
+'use client';
+
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  CheckCircle2,
+  XCircle,
+  GitBranch,
+  Settings,
+  ExternalLink,
+  RefreshCw,
+  Server,
+} from 'lucide-react';
+import { toast } from 'sonner';
+import { useEffect, useState } from 'react';
+import { useGitLabQueries } from './GitLabContext';
+
+type GitLabIntegrationDetailsProps = {
+  organizationId?: string;
+  organizationName?: string;
+  success?: boolean;
+  error?: string;
+};
+
+export function GitLabIntegrationDetails({
+  organizationId,
+  success,
+  error,
+}: GitLabIntegrationDetailsProps) {
+  const [instanceUrl, setInstanceUrl] = useState('https://gitlab.com');
+  const [showSelfHosted, setShowSelfHosted] = useState(false);
+  const [clientId, setClientId] = useState('');
+  const [clientSecret, setClientSecret] = useState('');
+
+  const isSelfHostedInput = Boolean(
+    instanceUrl && instanceUrl !== 'https://gitlab.com' && instanceUrl !== ''
+  );
+
+  const { queries, mutations } = useGitLabQueries();
+
+  const { data: installationData, isLoading } = queries.getInstallation();
+
+  const isDisconnecting = mutations.disconnect.isPending;
+
+  useEffect(() => {
+    if (success) {
+      toast.success('GitLab connected successfully!');
+    }
+    if (error) {
+      const errorMessages: Record<string, string> = {
+        missing_code: 'Authorization code missing from GitLab',
+        connection_failed: 'Failed to connect to GitLab',
+        oauth_init_failed: 'Failed to initiate GitLab OAuth',
+      };
+      toast.error(errorMessages[error] || `Connection failed: ${error}`);
+    }
+  }, [success, error]);
+
+  const handleConnect = () => {
+    if (isSelfHostedInput && (!clientId || !clientSecret)) {
+      toast.error('Please enter your GitLab Application ID and Secret');
+      return;
+    }
+
+    const params = new URLSearchParams();
+    if (organizationId) {
+      params.set('organizationId', organizationId);
+    }
+    if (instanceUrl && instanceUrl !== 'https://gitlab.com') {
+      params.set('instanceUrl', instanceUrl);
+    }
+    if (isSelfHostedInput && clientId && clientSecret) {
+      params.set('clientId', clientId);
+      params.set('clientSecret', clientSecret);
+    }
+
+    window.location.href = `/api/integrations/gitlab/connect?${params.toString()}`;
+  };
+
+  const handleDisconnect = () => {
+    if (confirm('Are you sure you want to disconnect GitLab?')) {
+      mutations.disconnect.mutate(undefined, {
+        onSuccess: () => {
+          toast.success('GitLab disconnected');
+        },
+        onError: (err: { message: string }) => {
+          toast.error('Failed to disconnect', {
+            description: err.message,
+          });
+        },
+      });
+    }
+  };
+
+  const handleRefresh = () => {
+    if (!installationData?.installation?.id) return;
+
+    mutations.refreshRepositories.mutate(
+      { integrationId: installationData.installation.id },
+      {
+        onSuccess: () => {
+          toast.success('Repositories refreshed');
+        },
+        onError: (err: { message: string }) => {
+          toast.error('Failed to refresh repositories', {
+            description: err.message,
+          });
+        },
+      }
+    );
+  };
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="pt-6">
+          <div className="animate-pulse space-y-4">
+            <div className="bg-muted h-20 rounded" />
+            <div className="bg-muted h-32 rounded" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const isConnected = installationData?.installed;
+  const installation = installationData?.installation;
+  const gitlabInstanceUrl = installation?.instanceUrl || 'https://gitlab.com';
+  const isSelfHosted = gitlabInstanceUrl !== 'https://gitlab.com';
+
+  return (
+    <div className="space-y-6">
+      {/* Integration Status Card */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <GitBranch className="h-5 w-5" />
+                GitLab Integration
+                {isSelfHosted && (
+                  <Badge variant="outline" className="ml-2">
+                    <Server className="mr-1 h-3 w-3" />
+                    Self-hosted
+                  </Badge>
+                )}
+              </CardTitle>
+              <CardDescription>
+                Connect your GitLab repositories for AI-powered code reviews and automated workflows
+              </CardDescription>
+            </div>
+            {isConnected ? (
+              <Badge variant="default" className="flex items-center gap-1">
+                <CheckCircle2 className="h-3 w-3" />
+                Connected
+              </Badge>
+            ) : (
+              <Badge variant="secondary" className="flex items-center gap-1">
+                <XCircle className="h-3 w-3" />
+                Not Connected
+              </Badge>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {isConnected && installation ? (
+            <>
+              {/* Connection Details */}
+              <div className="space-y-3 rounded-lg border p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Account:</span>
+                  <span className="text-sm">{installation.accountLogin}</span>
+                </div>
+                {isSelfHosted && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Instance:</span>
+                    <span className="text-sm">{gitlabInstanceUrl}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Repository Access:</span>
+                  <Badge variant="outline">All accessible projects</Badge>
+                </div>
+                {installation.repositories &&
+                  Array.isArray(installation.repositories) &&
+                  installation.repositories.length > 0 && (
+                    <div className="space-y-2">
+                      <span className="text-sm font-medium">
+                        Projects ({installation.repositories.length}):
+                      </span>
+                      <div className="flex flex-wrap gap-2">
+                        {installation.repositories
+                          .slice(0, 10)
+                          .map((repo: { id: number; full_name: string }) => (
+                            <Badge key={repo.id} variant="secondary">
+                              {repo.full_name}
+                            </Badge>
+                          ))}
+                        {installation.repositories.length > 10 && (
+                          <Badge variant="outline">
+                            +{installation.repositories.length - 10} more
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Connected:</span>
+                  <span className="text-sm">
+                    {new Date(installation.installedAt).toLocaleDateString()}
+                  </span>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    window.open(`${gitlabInstanceUrl}/-/profile/applications`, '_blank');
+                  }}
+                >
+                  <Settings className="mr-2 h-4 w-4" />
+                  Manage on GitLab
+                  <ExternalLink className="ml-2 h-3 w-3" />
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleRefresh}
+                  disabled={mutations.refreshRepositories.isPending}
+                >
+                  <RefreshCw
+                    className={`mr-2 h-4 w-4 ${mutations.refreshRepositories.isPending ? 'animate-spin' : ''}`}
+                  />
+                  {mutations.refreshRepositories.isPending ? 'Refreshing...' : 'Refresh Projects'}
+                </Button>
+                <Button variant="destructive" onClick={handleDisconnect} disabled={isDisconnecting}>
+                  {isDisconnecting ? 'Disconnecting...' : 'Disconnect'}
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Not Connected State */}
+              <Alert>
+                <AlertDescription>
+                  Connect your GitLab account to integrate your repositories with Kilo Code. Enable
+                  AI-powered code reviews on merge requests and other intelligent workflows for your
+                  projects.
+                </AlertDescription>
+              </Alert>
+
+              <div className="space-y-2 rounded-lg border p-4">
+                <h4 className="font-medium">What happens when you connect:</h4>
+                <ul className="text-muted-foreground space-y-1 text-sm">
+                  <li>✓ Access your GitLab projects and repositories</li>
+                  <li>✓ Enable AI-powered code reviews on merge requests</li>
+                  <li>✓ Configure intelligent agents for your repositories</li>
+                  <li>✓ Seamless integration with your existing GitLab workflows</li>
+                </ul>
+              </div>
+
+              {/* Self-hosted GitLab option */}
+              <div className="space-y-3">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowSelfHosted(!showSelfHosted)}
+                  className="text-muted-foreground"
+                >
+                  <Server className="mr-2 h-4 w-4" />
+                  {showSelfHosted ? 'Hide' : 'Using'} self-hosted GitLab?
+                </Button>
+
+                {showSelfHosted && (
+                  <>
+                    <p className="text-muted-foreground mb-2 text-sm">
+                      Using a self-hosted GitLab instance is a{' '}
+                      <a
+                        href="https://kilo.ai/docs/automate/integrations"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary underline"
+                      >
+                        feature of Kilo Code Enterprise
+                      </a>
+                      . Contact{' '}
+                      <a href="mailto:sales@kilocode.ai" className="text-primary underline">
+                        Sales
+                      </a>{' '}
+                      to learn more.
+                    </p>
+                    <div className="space-y-4 rounded-lg border p-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="instanceUrl">GitLab Instance URL</Label>
+                        <Input
+                          id="instanceUrl"
+                          type="url"
+                          placeholder="https://gitlab.example.com"
+                          value={instanceUrl}
+                          onChange={e => setInstanceUrl(e.target.value)}
+                        />
+                        <p className="text-muted-foreground text-xs">
+                          Enter your self-hosted GitLab instance URL.
+                        </p>
+                      </div>
+
+                      {isSelfHostedInput && (
+                        <>
+                          <Alert>
+                            <AlertDescription className="text-sm">
+                              For self-hosted GitLab, you need to create an OAuth application on
+                              your instance:
+                              <ol className="mt-2 list-inside list-decimal space-y-1">
+                                <li>
+                                  Go to <strong>Admin Area → Applications</strong> (or User Settings
+                                  → Applications)
+                                </li>
+                                <li>
+                                  Create a new application with:
+                                  <ul className="mt-1 ml-4 list-inside list-disc text-xs">
+                                    <li>
+                                      Redirect URI:{' '}
+                                      <code className="bg-muted rounded px-1">
+                                        http://localhost:3000/api/integrations/gitlab/callback
+                                      </code>
+                                    </li>
+                                    <li>
+                                      Scopes: <code className="bg-muted rounded px-1">api</code>,{' '}
+                                      <code className="bg-muted rounded px-1">read_user</code>,{' '}
+                                      <code className="bg-muted rounded px-1">read_repository</code>
+                                    </li>
+                                  </ul>
+                                </li>
+                                <li>Copy the Application ID and Secret below</li>
+                              </ol>
+                            </AlertDescription>
+                          </Alert>
+
+                          <div className="space-y-2">
+                            <Label htmlFor="clientId">Application ID</Label>
+                            <Input
+                              id="clientId"
+                              type="text"
+                              placeholder="Your GitLab Application ID"
+                              value={clientId}
+                              onChange={e => setClientId(e.target.value)}
+                            />
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label htmlFor="clientSecret">Application Secret</Label>
+                            <Input
+                              id="clientSecret"
+                              type="password"
+                              placeholder="Your GitLab Application Secret"
+                              value={clientSecret}
+                              onChange={e => setClientSecret(e.target.value)}
+                            />
+                            <p className="text-muted-foreground text-xs">
+                              Your credentials are encrypted and stored securely.
+                            </p>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <Button
+                onClick={handleConnect}
+                size="lg"
+                className="w-full"
+                disabled={isSelfHostedInput && (!clientId || !clientSecret)}
+              >
+                <GitBranch className="mr-2 h-4 w-4" />
+                Connect {isSelfHostedInput ? 'Self-Hosted ' : ''}GitLab
+              </Button>
+            </>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

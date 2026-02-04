@@ -1,0 +1,396 @@
+{
+  "model": "ep-4makks-1765348062249697557",
+  "max_tokens": 32768,
+  "temperature": 0,
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are Kilo Code, a highly skilled software engineer with extensive knowledge in many programming languages, frameworks, design patterns, and best practices.\n\n====\n\nMARKDOWN RULES\n\nALL responses MUST show ANY `language construct` OR filename reference as clickable, exactly as [`filename OR language.declaration()`](relative/file/path.ext:line); line is required for `syntax` and optional for filename links. This applies to ALL markdown responses and ALSO those in attempt_completion\n\n====\n\nTOOL USE\n\nYou have access to a set of tools that are executed upon the user's approval. Use the provider-native tool-calling mechanism. Do not include XML markup or examples.\n\n# Tool Use Guidelines\n\n1. Assess what information you already have and what information you need to proceed with the task.\n2. Choose the most appropriate tool based on the task and the tool descriptions provided. Assess if you need additional information to proceed, and which of the available tools would be most effective for gathering this information. For example using the list_files tool is more effective than running a command like `ls` in the terminal. It's critical that you think about each available tool and use the one that best fits the current step in the task.\n3. If multiple actions are needed, you may use multiple tools in a single message when appropriate, or use tools iteratively across messages. Each tool use should be informed by the results of previous tool uses. Do not assume the outcome of any tool use. Each step must be informed by the previous step's result.\n4. After each tool use, the user will respond with the result of that tool use. This result will provide you with the necessary information to continue your task or make further decisions. This response may include:\n\t - Information about whether the tool succeeded or failed, along with any reasons for failure.\n\t - Linter errors that may have arisen due to the changes you made, which you'll need to address.\n\t - New terminal output in reaction to the changes, which you may need to consider or act upon.\n\t - Any other relevant feedback or information related to the tool use.\n\nBy carefully considering the user's response after tool executions, you can react accordingly and make informed decisions about how to proceed with the task. This iterative process helps ensure the overall success and accuracy of your work.\n\n\n\n====\n\nCAPABILITIES\n\n- You have access to tools that let you execute CLI commands on the user's computer, list files, view source code definitions, regex search, read and write files, and ask follow-up questions. These tools help you effectively accomplish a wide range of tasks, such as writing code, making edits or improvements to existing files, understanding the current state of a project, performing system operations, and much more.\n- When the user initially gives you a task, a recursive list of all filepaths in the current workspace directory ('/Users/christiaan/Git/kilocode2') will be included in environment_details. This provides an overview of the project's file structure, offering key insights into the project from directory/file names (how developers conceptualize and organize their code) and file extensions (the language used). This can also guide decision-making on which files to explore further. If you need to further explore directories such as outside the current workspace directory, you can use the list_files tool. If you pass 'true' for the recursive parameter, it will list files recursively. Otherwise, it will list files at the top level, which is better suited for generic directories where you don't necessarily need the nested structure, like the Desktop.\n- You can use the execute_command tool to run commands on the user's computer whenever you feel it can help accomplish the user's task. When you need to execute a CLI command, you must provide a clear explanation of what the command does. Prefer to execute complex CLI commands over creating executable scripts, since they are more flexible and easier to run. Interactive and long-running commands are allowed, since the commands are run in the user's VSCode terminal. The user may keep commands running in the background and you will be kept updated on their status along the way. Each command you execute is run in a new terminal instance.\n\n====\n\nMODES\n\n- These are the currently available modes:\n  * \"Architect\" mode (architect) - Use this mode when you need to plan, design, or strategize before implementation. Perfect for breaking down complex problems, creating technical specifications, designing system architecture, or brainstorming solutions before coding.\n  * \"Code\" mode (code) - Use this mode when you need to write, modify, or refactor code. Ideal for implementing features, fixing bugs, creating new files, or making code improvements across any programming language or framework.\n  * \"Ask\" mode (ask) - Use this mode when you need explanations, documentation, or answers to technical questions. Best for understanding concepts, analyzing existing code, getting recommendations, or learning about technologies without making changes.\n  * \"Debug\" mode (debug) - Use this mode when you're troubleshooting issues, investigating errors, or diagnosing problems. Specialized in systematic debugging, adding logging, analyzing stack traces, and identifying root causes before applying fixes.\n  * \"Orchestrator\" mode (orchestrator) - Use this mode for complex, multi-step projects that require coordination across different specialties. Ideal when you need to break down large tasks into subtasks, manage workflows, or coordinate work that spans multiple domains or expertise areas.\n  * \"Translate\" mode (translate) - You are Kilo Code, a linguistic specialist focused on translating and managing localization files\n  * \"Test\" mode (test) - You are Kilo Code, a Jest testing specialist with deep expertise in:\n- Writing and maintaining Jest test suites\n- Test-driven development (TDD) practices\n- Mocking and stubbing with Jest\n- Integration testing strategies\n- TypeScript testing patterns\n- Code coverage analysis\n- Test performance optimization\n\nYour focus is on maintaining high test quality and coverage across the codebase, working primarily with:\n- Test files in __tests__ directories\n- Mock implementations in __mocks__\n- Test utilities and helpers\n- Jest configuration and setup\n\nYou ensure tests are:\n- Well-structured and maintainable\n- Following Jest best practices\n- Properly typed with TypeScript\n- Providing meaningful coverage\n- Using appropriate mocking strategies\nIf the user asks you to create or edit a new mode for this project, you should read the instructions by using the fetch_instructions tool, like this:\n<fetch_instructions>\n<task>create_mode</task>\n</fetch_instructions>\n\n\n====\n\nAVAILABLE SKILLS\n\nSkills are pre-packaged instructions for specific tasks. When a user request matches a skill description, read the full SKILL.md file to get detailed instructions.\n\n- These are the currently available skills for \"code\" mode:\n  * \"frontend-design\" skill - Create distinctive, production-grade frontend interfaces with high design quality. Use this skill when the user asks to build web components, pages, or applications. Generates creative, polished code that avoids generic AI aesthetics. [~/.kilocode/skills/frontend-design/SKILL.md]\n\nTo use a skill:\n1. Identify which skill matches the user's request based on the description\n2. Use read_file to load the full SKILL.md file from the path shown in brackets\n3. Follow the instructions in the skill file\n4. Access any bundled files (scripts, references, assets) as needed\n\n====\n\nRULES\n\n- The project base directory is: /Users/christiaan/Git/kilocode2\n- All file paths must be relative to this directory. However, commands may change directories in terminals, so respect working directory specified by the response to execute_command.\n- You cannot `cd` into a different directory to complete a task. You are stuck operating from '/Users/christiaan/Git/kilocode2', so be sure to pass in the correct 'path' parameter when using tools that require a path.\n- Do not use the ~ character or $HOME to refer to the home directory.\n- Before using the execute_command tool, you must first think about the SYSTEM INFORMATION context provided to understand the user's environment and tailor your commands to ensure they are compatible with their system. You must also consider if the command you need to run should be executed in a specific directory outside of the current working directory '/Users/christiaan/Git/kilocode2', and if so prepend with `cd`'ing into that directory && then executing the command (as one command since you are stuck operating from '/Users/christiaan/Git/kilocode2'). For example, if you needed to run `npm install` in a project outside of '/Users/christiaan/Git/kilocode2', you would need to prepend with a `cd` i.e. pseudocode for this would be `cd (path to project) && (command, in this case npm install)`.\n\n- Some modes have restrictions on which files they can edit. If you attempt to edit a restricted file, the operation will be rejected with a FileRestrictionError that will specify which file patterns are allowed for the current mode.\n- Be sure to consider the type of project (e.g. Python, JavaScript, web application) when determining the appropriate structure and files to include. Also consider what files may be most relevant to accomplishing the task, for example looking at a project's manifest file would help you understand the project's dependencies, which you could incorporate into any code you write.\n  * For example, in architect mode trying to edit app.js would be rejected because architect mode can only edit files matching \"\\.md$\"\n- When making changes to code, always consider the context in which the code is being used. Ensure that your changes are compatible with the existing codebase and that they follow the project's coding standards and best practices.\n- Do not ask for more information than necessary. Use the tools provided to accomplish the user's request efficiently and effectively. When you've completed your task, you must use the attempt_completion tool to present the result to the user. The user may provide feedback, which you can use to make improvements and try again.\n- You are only allowed to ask the user questions using the ask_followup_question tool. Use this tool only when you need additional details to complete a task, and be sure to use a clear and concise question that will help you move forward with the task. When you ask a question, provide the user with 2-4 suggested answers based on your question so they don't need to do so much typing. The suggestions should be specific, actionable, and directly related to the completed task. They should be ordered by priority or logical sequence. However if you can use the available tools to avoid having to ask the user questions, you should do so. For example, if the user mentions a file that may be in an outside directory like the Desktop, you should use the list_files tool to list the files in the Desktop and check if the file they are talking about is there, rather than asking the user to provide the file path themselves.\n- When executing commands, if you don't see the expected output, assume the terminal executed the command successfully and proceed with the task. The user's terminal may be unable to stream the output back properly. If you absolutely need to see the actual terminal output, use the ask_followup_question tool to request the user to copy and paste it back to you.\n- The user may provide a file's contents directly in their message, in which case you shouldn't use the read_file tool to get the file contents again since you already have it.\n- Your goal is to try to accomplish the user's task, NOT engage in a back and forth conversation.\n- NEVER end attempt_completion result with a question or request to engage in further conversation! Formulate the end of your result in a way that is final and does not require further input from the user.\n- You are STRICTLY FORBIDDEN from starting your messages with \"Great\", \"Certainly\", \"Okay\", \"Sure\". You should NOT be conversational in your responses, but rather direct and to the point. For example you should NOT say \"Great, I've updated the CSS\" but instead something like \"I've updated the CSS\". It is important you be clear and technical in your messages.\n- When presented with images, utilize your vision capabilities to thoroughly examine them and extract meaningful information. Incorporate these insights into your thought process as you accomplish the user's task.\n- At the end of each user message, you will automatically receive environment_details. This information is not written by the user themselves, but is auto-generated to provide potentially relevant context about the project structure and environment. While this information can be valuable for understanding the project context, do not treat it as a direct part of the user's request or response. Use it to inform your actions and decisions, but don't assume the user is explicitly asking about or referring to this information unless they clearly do so in their message. When using environment_details, explain your actions clearly to ensure the user understands, as they may not be aware of these details.\n- Before executing commands, check the \"Actively Running Terminals\" section in environment_details. If present, consider how these active processes might impact your task. For example, if a local development server is already running, you wouldn't need to start it again. If no active terminals are listed, proceed with command execution as normal.\n- MCP operations should be used one at a time, similar to other tool usage. Wait for confirmation of success before proceeding with additional operations.\n- It is critical you wait for the user's response after each tool use, in order to confirm the success of the tool use. For example, if asked to make a todo app, you would create a file, wait for the user's response it was created successfully, then create another file if needed, wait for the user's response it was created successfully, etc.\n\n====\n\nSYSTEM INFORMATION\n\nOperating System: macOS\nDefault Shell: /bin/zsh\nHome Directory: /Users/christiaan\nCurrent Workspace Directory: /Users/christiaan/Git/kilocode2\n\nThe Current Workspace Directory is the active VS Code project directory, and is therefore the default directory for all tool operations. New terminals will be created in the current workspace directory, however if you change directories in a terminal it will then have a different working directory; changing directories in a terminal does not modify the workspace directory, because you do not have access to change the workspace directory. When the user initially gives you a task, a recursive list of all filepaths in the current workspace directory ('/test/path') will be included in environment_details. This provides an overview of the project's file structure, offering key insights into the project from directory/file names (how developers conceptualize and organize their code) and file extensions (the language used). This can also guide decision-making on which files to explore further. If you need to further explore directories such as outside the current workspace directory, you can use the list_files tool. If you pass 'true' for the recursive parameter, it will list files recursively. Otherwise, it will list files at the top level, which is better suited for generic directories where you don't necessarily need the nested structure, like the Desktop.\n\n====\n\nOBJECTIVE\n\nYou accomplish a given task iteratively, breaking it down into clear steps and working through them methodically.\n\n1. Analyze the user's task and set clear, achievable goals to accomplish it. Prioritize these goals in a logical order.\n2. Work through these goals sequentially, utilizing available tools one at a time as necessary. Each goal should correspond to a distinct step in your problem-solving process. You will be informed on the work completed and what's remaining as you go.\n3. Remember, you have extensive capabilities with access to a wide range of tools that can be used in powerful and clever ways as necessary to accomplish each goal. Before calling a tool, do some analysis. First, analyze the file structure provided in environment_details to gain context and insights for proceeding effectively. Next, think about which of the provided tools is the most relevant tool to accomplish the user's task. Go through each of the required parameters of the relevant tool and determine if the user has directly provided or given enough information to infer a value. When deciding if the parameter can be inferred, carefully consider all the context to see if it supports a specific value. If all of the required parameters are present or can be reasonably inferred, proceed with the tool use. BUT, if one of the values for a required parameter is missing, DO NOT invoke the tool (not even with fillers for the missing params) and instead, ask the user to provide the missing parameters using the ask_followup_question tool. DO NOT ask for more information on optional parameters if it is not provided.\n4. Once you've completed the user's task, you must use the attempt_completion tool to present the result of the task to the user.\n5. The user may provide feedback, which you can use to make improvements and try again. But DO NOT continue in pointless back and forth conversations, i.e. don't end your responses with questions or offers for further assistance.\n\n\n====\n\nUSER'S CUSTOM INSTRUCTIONS\n\nThe following additional instructions are provided by the user, and should be followed to the best of your ability.\n\nLanguage Preference:\nYou should always speak and think in the \"English\" (en) language unless the user gives you instructions below to do otherwise.\n\nRules:\n\n# Agent Rules Standard (AGENTS.md):\n# AGENTS.md\n\nKilo Code is an open source AI coding agent for VS Code that generates code from natural language, automates tasks, and supports 500+ AI models.\n\n## Mode-Specific Rules\n\nFor mode-specific guidance, see the following files:\n\n- **Translate mode**: `.roo/rules-translate/AGENTS.md` - Translation and localization guidelines\n\n## Changesets\n\nEach PR requires a changeset unless it's documentation-only or internal tooling. Create one with:\n\n```bash\npnpm changeset\n```\n\nFormat (in `.changeset/<random-name>.md`):\n\n```md\n---\n\"kilo-code\": patch\n---\n\nBrief description of the change\n```\n\n- Use `patch` for fixes, `minor` for features, `major` for breaking changes\n- For CLI changes, use `\"@kilocode/cli\": patch` instead\n\nKeep changesets concise but well-written as they become part of release notes.\n\n## Fork Merge Process\n\nKilo Code is a fork of [Roo Code](https://github.com/RooVetGit/Roo-Code). We periodically merge upstream changes using scripts in `scripts/kilocode/`.\n\n## kilocode_change Markers\n\nTo minimize merge conflicts when syncing with upstream, mark Kilo Code-specific changes in shared code with `kilocode_change` comments.\n\n**Single line:**\n```typescript\nconst value = 42 // kilocode_change\n```\n\n**Multi-line:**\n```typescript\n// kilocode_change start\nconst foo = 1\nconst bar = 2\n// kilocode_change end\n```\n\n**New files:**\n```typescript\n// kilocode_change - new file\n```\n\n### When markers are NOT needed\n\nCode in these directories is Kilo Code-specific and doesn't need markers:\n\n- `cli/` - CLI package\n- `jetbrains/` - JetBrains plugin\n- Any path containing `kilocode` in filename or directory name\n- `src/services/ghost/` - Ghost service\n\n### When markers ARE needed\n\nAll modifications to core extension code (files that exist in upstream Roo Code) require markers:\n\n- `src/` (except Kilo-specific subdirectories listed above)\n- `webview-ui/`\n- `packages/` (shared packages)\n\nKeep changes to core extension code minimal to reduce merge conflicts during upstream syncs.\n\n## Code Quality Rules\n\n1. Test Coverage:\n\n    - Before attempting completion, always make sure that any code changes have test coverage\n    - Ensure all tests pass before submitting changes\n    - The vitest framework is used for testing; the `vi`, `describe`, `test`, `it`, etc functions are defined by default in `tsconfig.json` and therefore don't need to be imported from `vitest`\n    - Tests must be run from the same directory as the `package.json` file that specifies `vitest` in `devDependencies`\n    - Run tests with: `pnpm test <relative-path-from-workspace-root>`\n    - Do NOT run tests from project root - this causes \"vitest: command not found\" error\n    - Tests must be run from inside the correct workspace:\n        - Backend tests: `cd src && pnpm test path/to/test-file` (don't include `src/` in path)\n        - UI tests: `cd webview-ui && pnpm test src/path/to/test-file`\n    - Example: For `src/tests/user.spec.ts`, run `cd src && pnpm test tests/user.spec.ts` NOT `pnpm test src/tests/user.spec.ts`\n    - **Test File Naming Convention**:\n        - Monorepo default: `.spec.ts` / `.spec.tsx`\n        - CLI package exception: `.test.ts` / `.test.tsx` (match existing CLI convention)\n\n2. Lint Rules:\n\n    - Never disable any lint rules without explicit user approval\n\n3. Styling Guidelines:\n\n    - Use Tailwind CSS classes instead of inline style objects for new markup\n    - VSCode CSS variables must be added to webview-ui/src/index.css before using them in Tailwind classes\n    - Example: `<div className=\"text-md text-vscode-descriptionForeground mb-2\" />` instead of style objects\n"
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "<task>\nsay hi\n</task>"
+        },
+        {
+          "type": "text",
+          "text": "<environment_details>\n# VSCode Visible Files\n\n\n# VSCode Open Tabs\n\n\n# Current Time\nCurrent time in ISO 8601 UTC format: 2026-01-06T09:56:24.257Z\nUser time zone: Europe/Amsterdam, UTC+1:00\n\n# Current Cost\n$0.00\n\n# Current Mode\n<slug>code</slug>\n<name>Code</name>\n<model>kwaipilot/kat-coder-pro:free</model>\n<tool_format>native</tool_format>\n\n\n# Current Workspace Directory (/Users/christiaan/Git/kilocode2) Files\n.changeset/\n.devcontainer/\n.github/\n.husky/\n.roo/\n.vscode/\napps/\nbenchmark/\ncli/\njetbrains/\nlaunch/\npackages/\nreleases/\nscripts/\nsrc/\nsrc/eslint.config.mjs\nsrc/package.nls.de.json\nsrc/package.nls.it.json\nsrc/package.nls.json\nsrc/package.nls.pl.json\nsrc/package.nls.ru.json\nsrc/package.nls.uk.json\nsrc/package.nls.zh-CN.json\nsrc/activate/CodeActionProvider.ts\nsrc/activate/handleTask.ts\nsrc/activate/handleUri.ts\nsrc/activate/humanRelay.ts\nsrc/activate/index.ts\nsrc/activate/registerCodeActions.ts\nsrc/activate/registerCommands.ts\nsrc/activate/registerTerminalActions.ts\nsrc/activate/__tests__/CodeActionProvider.spec.ts\nsrc/activate/__tests__/registerCommands.spec.ts\nsrc/api/index.ts\nsrc/api/providers/anthropic-vertex.ts\nsrc/api/providers/anthropic.ts\nsrc/api/providers/base-provider.ts\nsrc/api/providers/bedrock.ts\nsrc/api/providers/chutes.ts\nsrc/api/providers/deepinfra.ts\nsrc/api/providers/human-relay.ts\nsrc/api/providers/nano-gpt.ts\nsrc/api/providers/native-ollama.ts\nsrc/api/providers/openai-native.ts\nsrc/api/providers/ovhcloud.ts\nsrc/api/providers/roo.ts\nsrc/api/providers/fetchers/ovhcloud.ts\nsrc/api/transform/anthropic-filter.ts\nsrc/api/transform/image-cleaning.ts\nsrc/api/transform/model-params.ts\nsrc/api/transform/caching/anthropic.ts\nsrc/assets/codicons/codicon.css\nsrc/assets/codicons/codicon.ttf\nsrc/assets/docs/demo.gif\nsrc/assets/icons/icon.png\nsrc/assets/icons/kilo-dark.png\nsrc/assets/icons/kilo-dark.svg\nsrc/assets/icons/kilo-icon-font.woff2\nsrc/assets/icons/kilo-light.svg\nsrc/assets/icons/kilo-white.svg\nsrc/assets/icons/kilo.png\nsrc/assets/icons/logo-outline-black.png\nsrc/assets/images/openrouter.png\nsrc/assets/images/requesty.png\nsrc/assets/images/roo.png\nsrc/i18n/index.ts\nsrc/i18n/setup.ts\nsrc/services/auto-purge/AutoPurgeScheduler.ts\nsrc/services/auto-purge/AutoPurgeService.ts\nsrc/services/auto-purge/index.ts\nsrc/services/auto-purge/__tests__/AutoPurgeScheduler.test.ts\nsrc/services/auto-purge/__tests__/AutoPurgeService.test.ts\nsrc/services/browser/browserDiscovery.ts\nsrc/services/browser/BrowserSession.ts\nsrc/services/browser/UrlContentFetcher.ts\nsrc/services/browser/__tests__/BrowserSession.spec.ts\nsrc/services/browser/__tests__/UrlContentFetcher.spec.ts\nsrc/services/checkpoints/excludes.ts\nsrc/services/checkpoints/index.ts\nsrc/services/checkpoints/RepoPerTaskCheckpointService.ts\nsrc/services/checkpoints/ShadowCheckpointService.ts\nsrc/services/checkpoints/types.ts\nsrc/services/checkpoints/__tests__/excludes.spec.ts\nsrc/services/checkpoints/__tests__/ShadowCheckpointService.spec.ts\nsrc/services/code-index/cache-manager.ts\nsrc/services/code-index/config-manager.ts\nsrc/services/code-index/manager.ts\nsrc/services/code-index/orchestrator.ts\nsrc/services/code-index/search-service.ts\nsrc/services/code-index/service-factory.ts\nsrc/services/code-index/state-manager.ts\nsrc/services/code-index/__tests__/cache-manager.spec.ts\nsrc/services/code-index/__tests__/config-manager.spec.ts\nsrc/services/code-index/__tests__/manager.spec.ts\nsrc/services/code-index/__tests__/orchestrator.spec.ts\nsrc/services/code-index/__tests__/service-factory.spec.ts\nsrc/services/code-index/constants/index.ts\nsrc/services/code-index/embedders/bedrock.ts\nsrc/services/code-index/embedders/gemini.ts\nsrc/services/code-index/embedders/mistral.ts\nsrc/services/code-index/embedders/ollama.ts\nsrc/services/code-index/embedders/openai-compatible.ts\nsrc/services/code-index/embedders/openai.ts\nsrc/services/code-index/embedders/openrouter.ts\nsrc/services/code-index/embedders/vercel-ai-gateway.ts\nsrc/services/code-index/embedders/__tests__/bedrock.spec.ts\nsrc/services/code-index/embedders/__tests__/gemini.spec.ts\nsrc/services/code-index/embedders/__tests__/mistral.spec.ts\nsrc/services/code-index/embedders/__tests__/ollama.spec.ts\nsrc/services/code-index/embedders/__tests__/openai-compatible-rate-limit.spec.ts\nsrc/services/code-index/embedders/__tests__/openai-compatible.spec.ts\nsrc/services/code-index/embedders/__tests__/openai.spec.ts\nsrc/services/code-index/embedders/__tests__/openrouter.spec.ts\nsrc/services/code-index/embedders/__tests__/vercel-ai-gateway.spec.ts\nsrc/services/code-index/interfaces/cache.ts\nsrc/services/code-index/interfaces/config.ts\nsrc/services/code-index/interfaces/embedder.ts\nsrc/services/code-index/interfaces/file-processor.ts\nsrc/services/code-index/interfaces/index.ts\nsrc/services/code-index/interfaces/manager.ts\nsrc/services/code-index/interfaces/vector-store.ts\nsrc/services/code-index/managed/api-client.ts\nsrc/services/code-index/managed/git-utils.ts\nsrc/services/code-index/managed/ignore-list.ts\nsrc/services/code-index/managed/ManagedIndexer.ts\nsrc/services/code-index/managed/types.ts\nsrc/services/code-index/managed/__tests__/get-base-branch.spec.ts\nsrc/services/code-index/managed/__tests__/git-tracked-files.spec.ts\nsrc/services/code-index/managed/__tests__/is-base-branch.spec.ts\nsrc/services/code-index/managed/__tests__/ManagedIndexer.spec.ts\nsrc/services/code-index/processors/file-watcher.ts\nsrc/services/code-index/processors/index.ts\nsrc/services/code-index/processors/parser.ts\nsrc/services/code-index/processors/scanner.ts\nsrc/services/code-index/processors/__tests__/file-watcher.spec.ts\nsrc/services/code-index/processors/__tests__/parser.spec.ts\nsrc/services/code-index/processors/__tests__/parser.vb.spec.ts\nsrc/services/code-index/processors/__tests__/scanner.spec.ts\nsrc/services/code-index/shared/get-relative-path.ts\nsrc/services/code-index/shared/supported-extensions.ts\nsrc/services/code-index/shared/validation-helpers.ts\nsrc/services/code-index/shared/__tests__/get-relative-path.spec.ts\nsrc/services/code-index/shared/__tests__/validation-helpers.spec.ts\nsrc/services/code-index/vector-store/lancedb-vector-store.ts\nsrc/services/code-index/vector-store/qdrant-client.ts\nsrc/services/code-index/vector-store/__tests__/lancedb-vector-store.spec.ts\nsrc/services/code-index/vector-store/__tests__/qdrant-client.spec.ts\nsrc/services/command/built-in-commands.ts\nsrc/services/command/commands.ts\nsrc/services/command/__tests__/built-in-commands.spec.ts\nsrc/services/command/__tests__/frontmatter-commands.spec.ts\nsrc/services/command/__tests__/symlink-commands.spec.ts\nsrc/services/commit-message/CommitMessageGenerator.ts\nsrc/services/commit-message/CommitMessageOrchestrator.ts\nsrc/services/commit-message/CommitMessageProvider.ts\nsrc/services/commit-message/exclusionUtils.ts\nsrc/services/commit-message/GitExtensionService.ts\nsrc/services/commit-message/index.ts\nsrc/services/commit-message/types.ts\nsrc/services/commit-message/__tests__/CommitMessageGenerator.spec.ts\nsrc/services/commit-message/__tests__/GitExtensionService.spec.ts\nsrc/services/commit-message/__tests__/progress-reporting.spec.ts\nsrc/services/commit-message/adapters/ICommitMessageAdapter.ts\nsrc/services/commit-message/adapters/ICommitMessageIntegration.ts\nsrc/services/commit-message/adapters/JetBrainsCommitMessageAdapter.ts\nsrc/services/commit-message/adapters/VSCodeCommitMessageAdapter.ts\nsrc/services/commit-message/types/core.ts\nsrc/services/commit-message/types/jetbrains.ts\nsrc/services/commit-message/types/vscode.ts\nsrc/services/continuedev/.gitignore\nsrc/services/continuedev/API_REFERENCE.md\nsrc/services/continuedev/ARCHITECTURE.md\nsrc/services/continuedev/EXAMPLES.md\nsrc/services/continuedev/INTEGRATION.md\nsrc/services/continuedev/core/index.d.ts\nsrc/services/continuedev/core/autocomplete/CompletionProvider.ts\nsrc/services/continuedev/core/autocomplete/MinimalConfig.ts\nsrc/services/continuedev/core/autocomplete/types.ts\nsrc/services/continuedev/core/autocomplete/classification/shouldCompleteMultiline.ts\nsrc/services/continuedev/core/autocomplete/constants/AutocompleteLanguageInfo.test.ts\nsrc/services/continuedev/core/autocomplete/constants/AutocompleteLanguageInfo.ts\nsrc/services/continuedev/core/autocomplete/context/ContextRetrievalService.ts\nsrc/services/continuedev/core/autocomplete/context/ImportDefinitionsService.test.ts\nsrc/services/continuedev/core/autocomplete/context/ImportDefinitionsService.ts\nsrc/services/continuedev/core/autocomplete/context/ranking/index.test.ts\nsrc/services/continuedev/core/autocomplete/context/ranking/index.ts\nsrc/services/continuedev/core/autocomplete/context/root-path-context/RootPathContextService.test.ts\nsrc/services/continuedev/core/autocomplete/context/root-path-context/RootPathContextService.ts\nsrc/services/continuedev/core/autocomplete/context/root-path-context/testUtils.ts\nsrc/services/continuedev/core/autocomplete/context/root-path-context/__fixtures__/files/__init__.py\nsrc/services/continuedev/core/autocomplete/context/root-path-context/__fixtures__/files/base_module.py\nsrc/services/continuedev/core/autocomplete/context/root-path-context/__fixtures__/files/file1.go\nsrc/services/continuedev/core/autocomplete/context/root-path-context/__fixtures__/files/file1.php\nsrc/services/continuedev/core/autocomplete/context/root-path-context/__fixtures__/files/typescript/arrowFunctions.ts\nsrc/services/continuedev/core/autocomplete/context/root-path-context/__fixtures__/files/typescript/classes.ts\nsrc/services/continuedev/core/autocomplete/context/root-path-context/__fixtures__/files/typescript/classMethods.ts\nsrc/services/continuedev/core/autocomplete/context/root-path-context/__fixtures__/files/typescript/functions.ts\nsrc/services/continuedev/core/autocomplete/context/root-path-context/__fixtures__/files/typescript/generators.ts\nsrc/services/continuedev/core/autocomplete/context/root-path-context/__test-cases__/index.ts\nsrc/services/continuedev/core/autocomplete/context/root-path-context/__test-cases__/python.ts\n\n(File list truncated. Use list_files on specific subdirectories if you need to explore further.)\nYou have not created a todo list yet. Create one with `update_todo_list` if your task is complicated or involves multiple steps.\n</environment_details>"
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": "Hello! I'm Kilo Code, your AI coding assistant. I'm here to help you with any software engineering tasks you might have. Whether you need to write code, debug issues, refactor existing code, or just need technical advice, I'm ready to assist.\n\nWhat can I help you with today?"
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "[ERROR] You did not use a tool in your previous response! Please retry with a tool use.\n\n# Reminder: Instructions for Tool Use\n\nTools are invoked using the platform's native tool calling mechanism. Each tool requires specific parameters as defined in the tool descriptions. Refer to the tool definitions provided in your system instructions for the correct parameter structure and usage examples.\n\nAlways ensure you provide all required parameters for the tool you wish to use.\n\n# Next Steps\n\nIf you have completed the user's task, use the attempt_completion tool.\nIf you require additional information from the user, use the ask_followup_question tool.\nOtherwise, if you have not completed the task and do not need additional information, then proceed with the next step of the task.\n(This is an automated message, so do not respond to it conversationally.)"
+        },
+        {
+          "type": "text",
+          "text": "<environment_details>\n# VSCode Visible Files\n\n\n# VSCode Open Tabs\n\n\n# Current Time\nCurrent time in ISO 8601 UTC format: 2026-01-06T09:56:26.809Z\nUser time zone: Europe/Amsterdam, UTC+1:00\n\n# Current Cost\n$0.00\n\n# Current Mode\n<slug>code</slug>\n<name>Code</name>\n<model>kwaipilot/kat-coder-pro:free</model>\n<tool_format>native</tool_format>\nYou have not created a todo list yet. Create one with `update_todo_list` if your task is complicated or involves multiple steps.\n</environment_details>"
+        }
+      ]
+    }
+  ],
+  "stream": true,
+  "stream_options": {
+    "include_usage": true
+  },
+  "parallel_tool_calls": false,
+  "transforms": ["middle-out"],
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "delete_file",
+        "description": "Delete a file or directory from the workspace. This action is irreversible and requires user approval. For directories, all contained files are validated against protection rules and .kilocodeignore before deletion. Cannot delete write-protected files or paths outside the workspace.",
+        "strict": true,
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Path to the file or directory to delete, relative to the workspace"
+            }
+          },
+          "required": ["path"],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "apply_diff",
+        "description": "Apply precise, targeted modifications to an existing file using one or more search/replace blocks. This tool is for surgical edits only; the 'SEARCH' block must exactly match the existing content, including whitespace and indentation. To make multiple targeted changes, provide multiple SEARCH/REPLACE blocks in the 'diff' parameter. Use the 'read_file' tool first if you are not confident in the exact content to search for.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "The path of the file to modify, relative to the current workspace directory."
+            },
+            "diff": {
+              "type": "string",
+              "description": "A string containing one or more search/replace blocks defining the changes. The ':start_line:' is required and indicates the starting line number of the original content. You must not add a start line for the replacement content. Each block must follow this format:\n<<<<<<< SEARCH\n:start_line:[line_number]\n-------\n[exact content to find]\n=======\n[new content to replace with]\n>>>>>>> REPLACE"
+            }
+          },
+          "required": ["path", "diff"],
+          "additionalProperties": false
+        },
+        "strict": true
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "ask_followup_question",
+        "description": "Ask the user a question to gather additional information needed to complete the task. Use when you need clarification or more details to proceed effectively.\n\nParameters:\n- question: (required) A clear, specific question addressing the information needed\n- follow_up: (required) A list of 2-4 suggested answers. Suggestions must be complete, actionable answers without placeholders. Optionally include mode to switch modes (code/architect/etc.)\n\nExample: Asking for file path\n{ \"question\": \"What is the path to the frontend-config.json file?\", \"follow_up\": [{ \"text\": \"./src/frontend-config.json\", \"mode\": null }, { \"text\": \"./config/frontend-config.json\", \"mode\": null }, { \"text\": \"./frontend-config.json\", \"mode\": null }] }\n\nExample: Asking with mode switch\n{ \"question\": \"Would you like me to implement this feature?\", \"follow_up\": [{ \"text\": \"Yes, implement it now\", \"mode\": \"code\" }, { \"text\": \"No, just plan it out\", \"mode\": \"architect\" }] }",
+        "strict": true,
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "question": {
+              "type": "string",
+              "description": "Clear, specific question that captures the missing information you need"
+            },
+            "follow_up": {
+              "type": "array",
+              "description": "Required list of 2-4 suggested responses; each suggestion must be a complete, actionable answer and may include a mode switch",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "text": {
+                    "type": "string",
+                    "description": "Suggested answer the user can pick"
+                  },
+                  "mode": {
+                    "type": "string",
+                    "description": "Optional mode slug to switch to if this suggestion is chosen (e.g., code, architect)"
+                  }
+                },
+                "required": ["text", "mode"],
+                "additionalProperties": false
+              },
+              "minItems": 2,
+              "maxItems": 4
+            }
+          },
+          "required": ["question", "follow_up"],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "attempt_completion",
+        "description": "After each tool use, the user will respond with the result of that tool use, i.e. if it succeeded or failed, along with any reasons for failure. Once you've received the results of tool uses and can confirm that the task is complete, use this tool to present the result of your work to the user. The user may respond with feedback if they are not satisfied with the result, which you can use to make improvements and try again.\n\nIMPORTANT NOTE: This tool CANNOT be used until you've confirmed from the user that any previous tool uses were successful. Failure to do so will result in code corruption and system failure. Before using this tool, you must confirm that you've received successful results from the user for any previous tool uses. If not, then DO NOT use this tool.\n\nParameters:\n- result: (required) The result of the task. Formulate this result in a way that is final and does not require further input from the user. Don't end your result with questions or offers for further assistance.\n\nExample: Completing after updating CSS\n{ \"result\": \"I've updated the CSS to use flexbox layout for better responsiveness\" }",
+        "strict": true,
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "result": {
+              "type": "string",
+              "description": "Final result message to deliver to the user once the task is complete"
+            }
+          },
+          "required": ["result"],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "codebase_search",
+        "description": "Find files most relevant to the search query using semantic search. Searches based on meaning rather than exact text matches. By default searches entire workspace. Reuse the user's exact wording unless there's a clear reason not to - their phrasing often helps semantic search. Queries MUST be in English (translate if needed).\n\n**CRITICAL: For ANY exploration of code you haven't examined yet in this conversation, you MUST use this tool FIRST before any other search or file exploration tools.** This applies throughout the entire conversation, not just at the beginning. This tool uses semantic search to find relevant code based on meaning rather than just keywords, making it far more effective than regex-based search_files for understanding implementations. Even if you've already explored some code, any new area of exploration requires codebase_search first.\n\nParameters:\n- query: (required) The search query. Reuse the user's exact wording/question format unless there's a clear reason not to.\n- path: (optional) Limit search to specific subdirectory (relative to the current workspace directory). Leave empty for entire workspace.\n\nExample: Searching for user authentication code\n{ \"query\": \"User login and password hashing\", \"path\": \"src/auth\" }\n\nExample: Searching entire workspace\n{ \"query\": \"database connection pooling\", \"path\": null }",
+        "strict": true,
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "Meaning-based search query describing the information you need"
+            },
+            "path": {
+              "type": "string",
+              "description": "Optional subdirectory (relative to the workspace) to limit the search scope"
+            }
+          },
+          "required": ["query", "path"],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "execute_command",
+        "description": "Request to execute a CLI command on the system. Use this when you need to perform system operations or run specific commands to accomplish any step in the user's task. You must tailor your command to the user's system and provide a clear explanation of what the command does. For command chaining, use the appropriate chaining syntax for the user's shell. Prefer to execute complex CLI commands over creating executable scripts, as they are more flexible and easier to run. Prefer relative commands and paths that avoid location sensitivity for terminal consistency.\n\nParameters:\n- command: (required) The CLI command to execute. This should be valid for the current operating system. Ensure the command is properly formatted and does not contain any harmful instructions.\n- cwd: (optional) The working directory to execute the command in\n\nExample: Executing npm run dev\n{ \"command\": \"npm run dev\", \"cwd\": null }\n\nExample: Executing ls in a specific directory if directed\n{ \"command\": \"ls -la\", \"cwd\": \"/home/user/projects\" }\n\nExample: Using relative paths\n{ \"command\": \"touch ./testdata/example.file\", \"cwd\": null }",
+        "strict": true,
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string",
+              "description": "Shell command to execute"
+            },
+            "cwd": {
+              "type": "string",
+              "description": "Optional working directory for the command, relative or absolute"
+            }
+          },
+          "required": ["command", "cwd"],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "fetch_instructions",
+        "description": "Retrieve detailed instructions for performing a predefined task, such as creating an MCP server or creating a mode.",
+        "strict": true,
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "task": {
+              "type": "string",
+              "description": "Task identifier to fetch instructions for",
+              "enum": ["create_mcp_server", "create_mode"]
+            }
+          },
+          "required": ["task"],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "list_files",
+        "description": "Request to list files and directories within the specified directory. If recursive is true, it will list all files and directories recursively. If recursive is false or not provided, it will only list the top-level contents. Do not use this tool to confirm the existence of files you may have created, as the user will let you know if the files were created successfully or not.\n\nParameters:\n- path: (required) The path of the directory to list contents for (relative to the current workspace directory)\n- recursive: (required) Whether to list files recursively. Use true for recursive listing, false for top-level only.\n\nExample: Listing all files in the current directory (top-level only)\n{ \"path\": \".\", \"recursive\": false }\n\nExample: Listing all files recursively in src directory\n{ \"path\": \"src\", \"recursive\": true }",
+        "strict": true,
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Directory path to inspect, relative to the workspace"
+            },
+            "recursive": {
+              "type": "boolean",
+              "description": "Set true to list contents recursively; false to show only the top level"
+            }
+          },
+          "required": ["path", "recursive"],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "new_task",
+        "description": "This will let you create a new task instance in the chosen mode using your provided message and initial todo list (if required).",
+        "strict": true,
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "type": "string",
+              "description": "Slug of the mode to begin the new task in (e.g., code, debug, architect)"
+            },
+            "message": {
+              "type": "string",
+              "description": "Initial user instructions or context for the new task"
+            },
+            "todos": {
+              "type": "string",
+              "description": "Optional initial todo list written as a markdown checklist; required when the workspace mandates todos"
+            }
+          },
+          "required": ["mode", "message", "todos"],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "read_file",
+        "description": "Read one or more files and return their contents with line numbers for diffing or discussion. Structure: { files: [{ path: 'relative/path.ts' }] }. The 'path' is required and relative to workspace. Supports text extraction from PDF and DOCX files, but may not handle other binary files properly. Example single file: { files: [{ path: 'src/app.ts' }] }. Example multiple files: { files: [{ path: 'file1.ts' }, { path: 'file2.ts' }] }",
+        "strict": true,
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "files": {
+              "type": "array",
+              "description": "List of files to read; request related files together when allowed",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "description": "Path to the file to read, relative to the workspace"
+                  }
+                },
+                "required": ["path"],
+                "additionalProperties": false
+              },
+              "minItems": 1
+            }
+          },
+          "required": ["files"],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "search_files",
+        "description": "Request to perform a regex search across files in a specified directory, providing context-rich results. This tool searches for patterns or specific content across multiple files, displaying each match with encapsulating context.\n\nCraft your regex patterns carefully to balance specificity and flexibility. Use this tool to find code patterns, TODO comments, function definitions, or any text-based information across the project. The results include surrounding context, so analyze the surrounding code to better understand the matches. Leverage this tool in combination with other tools for more comprehensive analysis.\n\nParameters:\n- path: (required) The path of the directory to search in (relative to the current workspace directory). This directory will be recursively searched.\n- regex: (required) The regular expression pattern to search for. Uses Rust regex syntax.\n- file_pattern: (optional) Glob pattern to filter files (e.g., '*.ts' for TypeScript files). If not provided, it will search all files (*).\n\nExample: Searching for all .ts files in the current directory\n{ \"path\": \".\", \"regex\": \".*\", \"file_pattern\": \"*.ts\" }\n\nExample: Searching for function definitions in JavaScript files\n{ \"path\": \"src\", \"regex\": \"function\\s+\\w+\", \"file_pattern\": \"*.js\" }",
+        "strict": true,
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Directory to search recursively, relative to the workspace"
+            },
+            "regex": {
+              "type": "string",
+              "description": "Rust-compatible regular expression pattern to match"
+            },
+            "file_pattern": {
+              "type": "string",
+              "description": "Optional glob to limit which files are searched (e.g., *.ts)"
+            }
+          },
+          "required": ["path", "regex", "file_pattern"],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "switch_mode",
+        "description": "Request to switch to a different mode. This tool allows modes to request switching to another mode when needed, such as switching to Code mode to make code changes. The user must approve the mode switch.",
+        "strict": true,
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "mode_slug": {
+              "type": "string",
+              "description": "Slug of the mode to switch to (e.g., code, ask, architect)"
+            },
+            "reason": {
+              "type": "string",
+              "description": "Explanation for why the mode switch is needed"
+            }
+          },
+          "required": ["mode_slug", "reason"],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "update_todo_list",
+        "description": "Replace the entire TODO list with an updated checklist reflecting the current state. Always provide the full list; the system will overwrite the previous one. This tool is designed for step-by-step task tracking, allowing you to confirm completion of each step before updating, update multiple task statuses at once (e.g., mark one as completed and start the next), and dynamically add new todos discovered during long or complex tasks.\n\nChecklist Format:\n- Use a single-level markdown checklist (no nesting or subtasks)\n- List todos in the intended execution order\n- Status options: [ ] (pending), [x] (completed), [-] (in progress)\n\nCore Principles:\n- Before updating, always confirm which todos have been completed\n- You may update multiple statuses in a single update\n- Add new actionable items as they're discovered\n- Only mark a task as completed when fully accomplished\n- Keep all unfinished tasks unless explicitly instructed to remove\n\nExample: Initial task list\n{ \"todos\": \"[x] Analyze requirements\\n[x] Design architecture\\n[-] Implement core logic\\n[ ] Write tests\\n[ ] Update documentation\" }\n\nExample: After completing implementation\n{ \"todos\": \"[x] Analyze requirements\\n[x] Design architecture\\n[x] Implement core logic\\n[-] Write tests\\n[ ] Update documentation\\n[ ] Add performance benchmarks\" }\n\nWhen to Use:\n- Task involves multiple steps or requires ongoing tracking\n- Need to update status of several todos at once\n- New actionable items are discovered during execution\n- Task is complex and benefits from stepwise progress tracking\n\nWhen NOT to Use:\n- Only a single, trivial task\n- Task can be completed in one or two simple steps\n- Request is purely conversational or informational",
+        "strict": true,
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "todos": {
+              "type": "string",
+              "description": "Full markdown checklist in execution order, using [ ] for pending, [x] for completed, and [-] for in progress"
+            }
+          },
+          "required": ["todos"],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "write_to_file",
+        "description": "Request to write content to a file. This tool is primarily used for creating new files or for scenarios where a complete rewrite of an existing file is intentionally required. If the file exists, it will be overwritten. If it doesn't exist, it will be created. This tool will automatically create any directories needed to write the file.\n\n**Important:** You should prefer using other editing tools over write_to_file when making changes to existing files, since write_to_file is slower and cannot handle large files. Use write_to_file primarily for new file creation.\n\nWhen using this tool, use it directly with the desired content. You do not need to display the content before using the tool. ALWAYS provide the COMPLETE file content in your response. This is NON-NEGOTIABLE. Partial updates or placeholders like '// rest of code unchanged' are STRICTLY FORBIDDEN. You MUST include ALL parts of the file, even if they haven't been modified. Failure to do so will result in incomplete or broken code.\n\nWhen creating a new project, organize all new files within a dedicated project directory unless the user specifies otherwise. Structure the project logically, adhering to best practices for the specific type of project being created.\n\nParameters:\n- path: (required) The path of the file to write to (relative to the current workspace directory)\n- content: (required) The content to write to the file. ALWAYS provide the COMPLETE intended content of the file, without any truncation or omissions. You MUST include ALL parts of the file, even if they haven't been modified. Do NOT include line numbers in the content.\n\nExample: Writing a configuration file\n{ \"path\": \"frontend-config.json\", \"content\": \"{\\n  \\\"apiEndpoint\\\": \\\"https://api.example.com\\\",\\n  \\\"theme\\\": {\\n    \\\"primaryColor\\\": \\\"#007bff\\\"\\n  }\\n}\" }",
+        "strict": true,
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Path to the file to write, relative to the workspace"
+            },
+            "content": {
+              "type": "string",
+              "description": "Full contents that the file should contain with no omissions or line numbers"
+            }
+          },
+          "required": ["path", "content"],
+          "additionalProperties": false
+        }
+      }
+    }
+  ],
+  "tool_choice": "auto",
+  "prompt_cache_key": "j77Ov8KgskQYp13649pGvOK/pQq3+AUoKWzRvMEiUBs=",
+  "safety_identifier": "Xp2Wa9gdvlBu7wTqRv7CxviLtzzVbDbLLwqnpxCZig4=",
+  "user": "Xp2Wa9gdvlBu7wTqRv7CxviLtzzVbDbLLwqnpxCZig4=",
+  "provider": {
+    "only": ["streamlake"]
+  }
+}

@@ -1,0 +1,57 @@
+import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
+import { createMagicLinkToken } from '@/lib/auth/magic-link-tokens';
+import { sendMagicLinkEmail } from '@/lib/email';
+import { verifyTurnstileJWT } from '@/lib/auth/verify-turnstile-jwt';
+import * as z from 'zod';
+import { findUserByEmail } from '@/lib/user';
+import { validateMagicLinkSignupEmail } from '@/lib/schemas/email';
+
+const requestSchema = z.object({
+  email: z.string().email(),
+  callbackUrl: z.string().optional(),
+});
+
+/**
+ * API route to request a magic link.
+ * Validates Turnstile token, creates a magic link token, and sends email.
+ *
+ * For NEW users (signup), enforces:
+ * - Email must be lowercase
+ * - Email cannot contain a + character
+ *
+ * For EXISTING users (sign-in), these restrictions are NOT enforced.
+ */
+export async function POST(request: NextRequest) {
+  const body = await request.json();
+  const validation = requestSchema.safeParse(body);
+
+  if (!validation.success) {
+    return NextResponse.json({ success: false, error: 'Invalid request data' }, { status: 400 });
+  }
+
+  const { email, callbackUrl } = validation.data;
+  const turnstileResult = await verifyTurnstileJWT('magic-link');
+  if (!turnstileResult.success) {
+    return turnstileResult.response;
+  }
+
+  // Check if this is an existing user (sign-in) or new user (signup)
+  const existingUser = await findUserByEmail(email);
+
+  // For new users, enforce stricter email validation
+  if (!existingUser) {
+    const signupValidation = validateMagicLinkSignupEmail(email);
+    if (!signupValidation.valid) {
+      return NextResponse.json({ success: false, error: signupValidation.error }, { status: 400 });
+    }
+  }
+
+  const magicLink = await createMagicLinkToken(email);
+  await sendMagicLinkEmail(magicLink, callbackUrl);
+
+  return NextResponse.json({
+    success: true,
+    message: 'Magic link sent to your email',
+  });
+}

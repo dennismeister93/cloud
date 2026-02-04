@@ -1,0 +1,13 @@
+
+         
+
+         
+
+         
+
+         
+
+         
+
+         
+{"id":"gen-1746908719-EOs882P7OXcTxxjI5FAp","provider":"Google","model":"anthropic/claude-3.7-sonnet","object":"chat.completion","created":1746908719,"choices":[{"logprobs":null,"finish_reason":"stop","native_finish_reason":"stop","index":0,"message":{"role":"assistant","content":"Lorem ipsum dolor sit amet, consectetur adipiscing elit","refusal":null,"reasoning":null}}],"usage":{"prompt_tokens":55,"completion_tokens":84,"total_tokens":139,"cost":0.001425,"prompt_tokens_details":{"cached_tokens":0},"completion_tokens_details":{"reasoning_tokens":0}}}

@@ -1,0 +1,36 @@
+# Build outputs
+.next/
+build/
+dist/
+out/
+.api/
+
+#approval tests
+src/tests/sample
+src/tests/req_sample
+
+**/*.approved.json
+**/*.approved.md
+
+# Dependencies
+node_modules/
+
+# Public assets
+public/
+
+# Generated files
+*.generated.*
+*.min.*
+_journal.json
+src/db/migrations/meta/*.json
+
+# Package files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Misc
+.DS_Store
+.env*
+!.env.example
+*.sql

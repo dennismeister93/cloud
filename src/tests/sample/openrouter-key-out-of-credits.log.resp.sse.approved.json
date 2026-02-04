@@ -1,0 +1,21 @@
+{
+  "kiloUserId": "fake-user-id",
+  "messageId": null,
+  "hasError": true,
+  "model": null,
+  "responseContent": "",
+  "inference_provider": null,
+  "finish_reason": null,
+  "upstream_id": null,
+  "latency": null,
+  "moderation_latency": null,
+  "generation_time": null,
+  "streamed": true,
+  "cancelled": null,
+  "inputTokens": 0,
+  "cacheHitTokens": 0,
+  "cacheWriteTokens": 0,
+  "outputTokens": 0,
+  "cost_mUsd": 0,
+  "is_byok": null
+}

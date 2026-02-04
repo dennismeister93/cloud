@@ -1,0 +1,31 @@
+{
+  "model": "openai/gpt-4.1",
+  "max_tokens": 32768,
+  "temperature": 0,
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are Kilo Code, a highly skilled software engineer with extensive knowledge in many programming languages, frameworks, "
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "<task>\nsrc/app/api/openrouter/[...path]/route.ts:151-160\n```\nfunction makeProxiedResponseHeaders(headers: Headers) {\n  const outputHeaders = new Headers();\n  for (const headerKey of ['date', 'content-type', 'request-id']) {\n    const value = headers.get(headerKey);\n    if (value) {\n      outputHeaders.set(headerKey, value);\n    }\n  }\n  return outputHeaders;\n}\n```\n\nCan this be simplified, somehow?\n</task>"
+        },
+        {
+          "type": "text",
+          "text": "<environment_details>...</environment_details>"
+        }
+      ]
+    }
+  ],
+  "stream": true,
+  "stream_options": {
+    "include_usage": true
+  },
+  "transforms": [
+    "middle-out"
+  ]
+}

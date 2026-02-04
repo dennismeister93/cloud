@@ -1,0 +1,29 @@
+/* Content scanning for Tailwind v4 - scan both storybook and main app files */
+@source '../**/*.{js,ts,jsx,tsx}';
+@source '../../src/**/*.{js,ts,jsx,tsx}';
+
+@import 'tailwindcss';
+@import '../../src/app/globals.css';
+
+/* Override Storybook's default styles to match our dark theme */
+.sb-show-main {
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+.sb-main-padded {
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+/* Ensure components render with proper dark theme */
+.storybook-component {
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+/* Apply dark theme to Storybook UI */
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+}

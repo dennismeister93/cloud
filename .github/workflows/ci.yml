@@ -1,0 +1,290 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      cloud_agent: ${{ steps.filter.outputs.cloud_agent }}
+      webhook_agent: ${{ steps.filter.outputs.webhook_agent }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changes
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            cloud_agent:
+              - 'cloud-agent/**'
+            webhook_agent:
+              - 'cloudflare-webhook-agent-ingest/**'
+
+  test:
+    runs-on: ubuntu-24.04-8core
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    env:
+      NODE_ENV: test
+      POSTGRES_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      POSTGRES_CONNECT_TIMEOUT: 30000
+      POSTGRES_MAX_QUERY_TIME: 30000
+      JEST_MAX_WORKERS: 4
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+          fetch-depth: 0
+          ref: ${{ github.head_ref }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: latest
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck (fail fast)
+        run: pnpm run typecheck
+
+      - name: Fix Formatting, Lint, Run Tests, and Commit Changes
+        shell: bash
+        run: |
+
+          echo building message in ${{ runner.temp }}/TMP_CI_commit_msg.txt
+          # Prepare the commit message file from the start
+          echo "ci: auto-fix formatting, linting, and snapshot updates" > ${{ runner.temp }}/TMP_CI_commit_msg.txt
+          echo "" >> ${{ runner.temp }}/TMP_CI_commit_msg.txt
+
+          echo "--- Linter Output ---" >> ${{ runner.temp }}/TMP_CI_commit_msg.txt
+          (pnpm run lint --fix 2>&1 || true) | tee -a ${{ runner.temp }}/TMP_CI_commit_msg.txt
+          #...and we DO ignore errors, since we'll relint later on and we want to commit what we can
+
+          echo "" >> ${{ runner.temp }}/TMP_CI_commit_msg.txt # Add a separator
+
+          echo "--- Formatter Output ---" >> ${{ runner.temp }}/TMP_CI_commit_msg.txt
+          pnpm run format 2>&1 | tee -a ${{ runner.temp }}/TMP_CI_commit_msg.txt
+          #...but here, do NOT ignore errors, since mere reformats don't count as error
+
+          TEST_EXIT_CODE=0
+          pnpm run test || TEST_EXIT_CODE=$?
+
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add .
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit $TEST_EXIT_CODE
+          fi
+
+          if [ "$(git log -1 --pretty=format:'%ae')" = "action@github.com" ]; then
+            echo "::error::CI autofix produced changes on a CI-generated commit. Committing could cause an infinite loop."
+            exit 1
+          fi
+
+          echo "Changes detected, committing..."
+          git commit -n -F ${{ runner.temp }}/TMP_CI_commit_msg.txt
+          git push
+
+          exit $TEST_EXIT_CODE
+
+      - name: Lints after autofixes
+        run: |
+          pnpm run typecheck
+          pnpm run lint
+          pnpm run dependency-cycle-check
+
+  build:
+    runs-on: ubuntu-24.04-8core
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+          ref: ${{ github.head_ref }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: latest
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache Next.js build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.npm
+            ${{ github.workspace }}/.next/cache
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('**/pnpm-lock.yaml') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-${{ hashFiles('**/pnpm-lock.yaml') }}-
+
+      - name: Setup Vercel ENV
+        run: |
+          pnpm install --global vercel@latest
+          vercel link --project=kilocode-app --token=${{ secrets.VERCEL_TOKEN }} --yes
+          vercel env pull .env.production.local --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build application
+        env:
+          NODE_ENV: production
+          SENTRY_AUTH_TOKEN: ''
+          NODE_OPTIONS: '--max-old-space-size=8192'
+        run: pnpm run build
+
+  cloud-agent:
+    needs: changes
+    if: needs.changes.outputs.cloud_agent == 'true'
+    runs-on: ubuntu-24.04-8core
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+          ref: ${{ github.head_ref }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: latest
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build wrapper bundle
+        working-directory: cloud-agent/wrapper
+        run: bun run build.ts
+
+      - name: Typecheck (cloud-agent)
+        run: pnpm --filter cloud-agent typecheck
+
+      - name: Lint (cloud-agent)
+        run: pnpm --filter cloud-agent lint
+
+      - name: Run cloud-agent tests
+        run: pnpm --filter cloud-agent test:all
+
+  webhook-agent:
+    needs: changes
+    if: needs.changes.outputs.webhook_agent == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+          ref: ${{ github.head_ref }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: latest
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck (webhook-agent-ingest)
+        run: pnpm --filter cloudflare-webhook-agent-ingest typecheck
+
+      - name: Lint (webhook-agent-ingest)
+        run: pnpm --filter cloudflare-webhook-agent-ingest lint
+
+      - name: Run webhook-agent-ingest tests
+        run: pnpm --filter cloudflare-webhook-agent-ingest test
+
+  cloudflare:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: deploy-builder
+            filter: kilo-deploy-builder
+          - name: deploy-dispatcher
+            filter: deploy-dispatcher
+          - name: app-builder
+            filter: app-builder
+          - name: code-review
+            filter: kilo-code-review-worker
+    name: cloudflare-${{ matrix.name }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+          ref: ${{ github.head_ref }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: latest
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm --filter ${{ matrix.filter }} typecheck

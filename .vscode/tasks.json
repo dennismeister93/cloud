@@ -1,0 +1,48 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "storybook",
+      "type": "shell",
+      "command": "kill -9 $(lsof -t -i tcp:6006) 2>/dev/null || true && cd storybook && pnpm storybook",
+      "group": "build",
+      "problemMatcher": {
+        "owner": "storybook",
+        "pattern": {
+          "regexp": "^$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".*Storybook.*",
+          "endsPattern": ".*Local:.*http://localhost:6006.*"
+        }
+      },
+      "isBackground": true,
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "docker-compose",
+      "type": "shell",
+      "command": "cd dev && docker-compose up",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "docker-compose",
+        "pattern": {
+          "regexp": "^$"
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".*\\[\\+\\].*Running.*|.*Attaching to.*|.*Creating.*|.*Starting.*",
+          "endsPattern": ".*ready to accept connections.*|.*Attaching to postgres-1.*"
+        }
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    }
+  ]
+}

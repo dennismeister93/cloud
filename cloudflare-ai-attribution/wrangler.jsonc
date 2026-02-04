@@ -1,0 +1,70 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "kilo-ai-attribution",
+  "account_id": "e115e769bcdd4c3d66af59d3332cb394",
+  "workers_dev": false,
+  "main": "src/ai-attribution.worker.ts",
+  "compatibility_date": "2024-12-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "logpush": true,
+  "observability": {
+    "enabled": true,
+  },
+  "vars": {
+    "ENVIRONMENT": "production",
+  },
+  "routes": ["ai-attribution.kiloapps.io/*"],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "ATTRIBUTION_TRACKER",
+        "class_name": "AttributionTrackerDO",
+      },
+    ],
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["AttributionTrackerDO"],
+    },
+  ],
+  "secrets_store_secrets": [
+    {
+      "binding": "NEXTAUTH_SECRET",
+      "store_id": "342a86d9e3a94da698e82d0c6e2a36f0",
+      "secret_name": "NEXTAUTH_SECRET_PROD",
+    },
+    {
+      "binding": "ADMIN_SECRET",
+      "store_id": "342a86d9e3a94da698e82d0c6e2a36f0",
+      "secret_name": "AI_ATTRIBUTION_ADMIN_SECRET_PROD",
+    },
+  ],
+  "env": {
+    "dev": {
+      "vars": {
+        "ENVIRONMENT": "development",
+      },
+      "secrets_store_secrets": [
+        {
+          "binding": "NEXTAUTH_SECRET",
+          "store_id": "342a86d9e3a94da698e82d0c6e2a36f0",
+          "secret_name": "NEXTAUTH_SECRET_DEV",
+        },
+        {
+          "binding": "ADMIN_SECRET",
+          "store_id": "342a86d9e3a94da698e82d0c6e2a36f0",
+          "secret_name": "AI_ATTRIBUTION_ADMIN_SECRET_DEV",
+        },
+      ],
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "ATTRIBUTION_TRACKER",
+            "class_name": "AttributionTrackerDO",
+          },
+        ],
+      },
+    },
+  },
+}

@@ -1,0 +1,29 @@
+{
+  "model": "google/gemini-2.5-pro-preview-03-25",
+  "max_tokens": 65536,
+  "temperature": 0,
+  "messages": [
+    {
+      "role": "system",
+      "content": "You are Kilo Code, a knowledgeable technical assistant focused on answering questions and providing information about software development, technology, and related topics.\n\n====\n\nTEST_PROMPT"
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "<task>\ntsconfig.json:1-34\n```\n{\n  \"compilerOptions\": {\n    \"target\": \"es2017\",\n    \"module\": \"es2022\",\n    \"lib\": [\"esnext\", \"esnext.asynciterable\"],\n    \"moduleResolution\": \"node\",\n    \"outDir\": \"./dist\",\n    \"strict\": true,\n    \"esModuleInterop\": true,\n    \"skipLibCheck\": true,\n    \"forceConsistentCasingInFileNames\": true,\n    \"baseUrl\": \".\",\n    \"paths\": {\n      \"'*\"' (see below for file content): [\"./src/*\"]\n    },\n    \"allowJs\": true,\n    \"noEmit\": true,\n    \"incremental\": true,\n    \"resolveJsonModule\": true,\n    \"isolatedModules\": true,\n    \"jsx\": \"preserve\",\n    \"plugins\": [\n      {\n        \"name\": \"next\"\n      }\n    ],\n    \"experimentalDecorators\": true,\n    \"emitDecoratorMetadata\": true,\n    \"strictPropertyInitialization\": false\n  },\n  \"include\": [\"src/**/*\", \".next/types/**/*.ts\"],\n  \"exclude\": [\"node_modules\"]\n}\n\n```\n\nGiven the fact that this is a next.js application, is this tsconfig.json correct?  typescript does validate the current code, but I'm not sure if that's because the config matches the reality of the bundler, or just coincidence\n</task>\n\n<file_content path=\"*\"\">\nError fetching content: Failed to access path \"*\"\": ENOENT: no such file or directory, stat '/Users/eamonnerbonne/Documents/VCS/kilocode-backend/*\"'\n</file_content>"
+        },
+        {
+          "type": "text",
+          "text": "<environment_details>\n# VSCode Visible Files\nsrc/tests/openrouter-models.test.ts,.env.development.local.example,src/components/auth/StytchClient.tsx,src/app/privacy/privacy-policy.mdx\n\n# Current Time\n5/12/2025, 2:03:30 PM (Europe/Amsterdam, UTC+2:00)\n\n# Current Context Size (Tokens)\n(Not available)\n\n# Current Cost\n$0.00\n\n# Current Mode\n<slug>ask</slug>\n<name>Ask</name>\n<model>Gemini 2.5 Pro</model>\n\n\nNOTE: You are currently in 'Ask' mode, which does not allow write operations. To write files, the user will need to switch to a mode that supports file writing, such as 'Code' mode.\n\n# Current Workspace Directory (/Users/eamonnerbonne/Documents/VCS/kilocode-backend) Files\n.env.development\n.env.development.local.example\n</environment_details>"
+        }
+      ]
+    }
+  ],
+  "stream": true,
+  "stream_options": {
+    "include_usage": true
+  },
+  "transforms": ["middle-out"]
+}

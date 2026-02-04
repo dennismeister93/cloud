@@ -1,0 +1,67 @@
+/**
+ * For more details on how to configure Wrangler, refer to:
+ * https://developers.cloudflare.com/workers/wrangler/configuration/
+ */
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "kilo-deploy-builder",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-10-11",
+  "compatibility_flags": ["nodejs_compat"],
+  "dev": {
+    "port": 8787,
+    "local_protocol": "http",
+    "ip": "0.0.0.0",
+  },
+  "logpush": true,
+  "rules": [
+    {
+      "type": "Text",
+      "globs": ["**/*.worker.js"],
+      "fallthrough": true,
+    },
+  ],
+  "upload_source_maps": true,
+  "observability": {
+    "enabled": true,
+  },
+  "version_metadata": {
+    "binding": "CF_VERSION_METADATA",
+  },
+  "vars": {
+    "CLOUDFLARE_ACCOUNT_ID": "e115e769bcdd4c3d66af59d3332cb394",
+    "BACKEND_EVENTS_URL": "https://app.kilo.ai/api/user-deployments/webhook",
+    "SENTRY_DSN": "https://1f07992a2811f3e5fc4d578527ab3d64@o4509356317474816.ingest.us.sentry.io/4510379756945409",
+    "ENVIRONMENT": "production",
+  },
+  "containers": [
+    {
+      "class_name": "Sandbox",
+      "image": "./../builder-docker-container/Dockerfile",
+      "instance_type": "standard-4",
+      "max_instances": 50,
+    },
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "DeploymentOrchestrator",
+        "class_name": "DeploymentOrchestrator",
+      },
+      {
+        "name": "EventsManager",
+        "class_name": "EventsManager",
+      },
+      {
+        "class_name": "Sandbox",
+        "name": "Sandbox",
+      },
+    ],
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["Sandbox", "DeploymentOrchestrator", "EventsManager"],
+    },
+  ],
+}

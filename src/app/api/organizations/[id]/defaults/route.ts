@@ -1,0 +1,108 @@
+import { NextResponse } from 'next/server';
+import { getAuthorizedOrgContext } from '@/lib/organizations/organization-auth';
+import type { NextRequest } from 'next/server';
+import { PRIMARY_DEFAULT_MODEL, getFirstFreeModel, preferredModels } from '@/lib/models';
+import { getEnhancedOpenRouterModels } from '@/lib/providers/openrouter';
+import { createProviderAwareModelAllowPredicate } from '@/lib/model-allow.server';
+import { getModelIdToProviderSlugsIndex } from '@/lib/providers/openrouter/models-by-provider-index.server';
+
+type DefaultsResponse = {
+  defaultModel: string;
+  defaultFreeModel: string;
+};
+
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+): Promise<NextResponse<DefaultsResponse | { error: string }>> {
+  const organizationId = (await params).id;
+  const { success, data, nextResponse } = await getAuthorizedOrgContext(organizationId);
+  if (!success) {
+    return nextResponse;
+  }
+
+  const { organization } = data;
+
+  // Get organization's default model setting
+  let defaultModel = organization.settings?.default_model;
+
+  const allowList = organization.settings?.model_allow_list;
+
+  const isAllowed = createProviderAwareModelAllowPredicate(allowList ?? []);
+
+  const findFirstAllowedModel = async (modelIds: readonly string[]) => {
+    for (const modelId of modelIds) {
+      if (await isAllowed(modelId)) {
+        return modelId;
+      }
+    }
+
+    return undefined;
+  };
+
+  const findFirstAllowedModelFromOpenRouter = async () => {
+    const openRouterModels = await getEnhancedOpenRouterModels();
+    for (const model of openRouterModels.data ?? []) {
+      if (await isAllowed(model.id)) {
+        return model.id;
+      }
+    }
+
+    return undefined;
+  };
+
+  const findFirstAllowedModelFromDbSnapshot = async () => {
+    const index = await getModelIdToProviderSlugsIndex();
+    for (const modelId of index.keys()) {
+      if (await isAllowed(modelId)) {
+        return modelId;
+      }
+    }
+
+    return undefined;
+  };
+
+  // If organization has a default model set, validate it against allowed models
+  if (defaultModel && (defaultModel.endsWith('/*') || !(await isAllowed(defaultModel)))) {
+    // Organization's configured default model is not permitted; fall back to a safe default.
+    defaultModel = undefined;
+  }
+
+  // Fallback to global default if no organization default is set or it's not allowed
+  if (!defaultModel) {
+    defaultModel = await findFirstAllowedModel([PRIMARY_DEFAULT_MODEL]);
+
+    if (!defaultModel) {
+      if (!allowList?.length) {
+        defaultModel = PRIMARY_DEFAULT_MODEL;
+      } else {
+        const firstConcreteAllowedModel = allowList.find(modelId => !modelId.endsWith('/*'));
+        defaultModel = firstConcreteAllowedModel;
+      }
+    }
+
+    if (!defaultModel && allowList?.length) {
+      defaultModel = await findFirstAllowedModel(preferredModels);
+    }
+
+    if (!defaultModel && allowList?.length) {
+      defaultModel = await findFirstAllowedModelFromDbSnapshot();
+    }
+
+    if (!defaultModel && allowList?.length) {
+      defaultModel = await findFirstAllowedModelFromOpenRouter();
+    }
+
+    if (!defaultModel) {
+      return NextResponse.json(
+        { error: "No valid models are allowed by this organization's allow list." },
+        { status: 409 }
+      );
+    }
+  }
+
+  return NextResponse.json({
+    defaultModel,
+    defaultFreeModel: getFirstFreeModel(),
+  });
+}

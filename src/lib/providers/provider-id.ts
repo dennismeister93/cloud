@@ -1,0 +1,15 @@
+export type ProviderId =
+  | 'openrouter'
+  | 'gigapotato'
+  | 'corethink'
+  | 'inception'
+  | 'martian'
+  | 'minimax'
+  | 'mistral'
+  | 'novita'
+  | 'genlabs'
+  | 'streamlake'
+  | 'x-ai'
+  | 'vercel'
+  | 'anthropic'
+  | 'dev-tools';

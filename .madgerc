@@ -1,0 +1,7 @@
+{
+  "circular": true,
+  "warning": true,
+  "extensions": ["ts", "tsx"],
+  "tsConfig": "tsconfig.json",
+  "baseDir": "."
+}

@@ -1,0 +1,3 @@
+ALTER TABLE "cli_sessions_v2" ADD COLUMN "parent_session_id" text;--> statement-breakpoint
+ALTER TABLE "cli_sessions_v2" ADD CONSTRAINT "cli_sessions_v2_parent_session_id_kilo_user_id_fk" FOREIGN KEY ("parent_session_id","kilo_user_id") REFERENCES "public"."cli_sessions_v2"("session_id","kilo_user_id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "IDX_cli_sessions_v2_parent_session_id_kilo_user_id" ON "cli_sessions_v2" USING btree ("parent_session_id","kilo_user_id");

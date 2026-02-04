@@ -1,0 +1,8 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# Storybook
+storybook-static/
+*.stories.js
+*.stories.js.map
+chromatic-build/
+build-storybook.log

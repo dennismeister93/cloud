@@ -1,0 +1,4 @@
+Invalid args for tool codebase_search:
+
+✖ Invalid input: expected string, received null
+  → at path

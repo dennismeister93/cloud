@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+
+# Environment variables
+.dev.vars
+.env
+
+# Build output
+dist/
+.wrangler/
+
+# TypeScript
+*.tsbuildinfo
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,14 @@
+data:{"id":"req-8nes9m-1767693387195350395|ep-4makks-1765348062249697557","object":"chat.completion.chunk","created":1767693387,"model":"kat-coder-pro-v1","choices":[{"index":0,"delta":{"role":"assistant","content":"","reasoning_content":null,"tool_calls":null},"logprobs":null,"finish_reason":null,"matched_stop":null}],"usage":null}
+
+data:{"id":"req-8nes9m-1767693387195350395|ep-4makks-1765348062249697557","object":"chat.completion.chunk","created":1767693387,"model":"kat-coder-pro-v1","choices":[{"index":0,"delta":{"content":null,"reasoning_content":null,"tool_calls":[{"id":"call_8d02086508af488395d5335d","index":0,"type":"function","function":{"name":"attempt_completion","arguments":""}}]},"logprobs":null,"finish_reason":null,"matched_stop":null}],"usage":null}
+
+data:{"id":"req-8nes9m-1767693387195350395|ep-4makks-1765348062249697557","object":"chat.completion.chunk","created":1767693388,"model":"kat-coder-pro-v1","choices":[{"index":0,"delta":{"content":null,"reasoning_content":null,"tool_calls":[{"id":null,"index":0,"type":"function","function":{"name":null,"arguments":"{\"result\": \"Hello! I'm Kilo Code, your AI coding assistant. I'm here to help you with any software engineering tasks you might have. Whether you need to write code, debug issues, refactor existing code, or just need technical advice, I'm ready to assist.\\n\\nWhat can I help you with today?\""}}]},"logprobs":null,"finish_reason":null,"matched_stop":null}],"usage":null}
+
+data:{"id":"req-8nes9m-1767693387195350395|ep-4makks-1765348062249697557","object":"chat.completion.chunk","created":1767693388,"model":"kat-coder-pro-v1","choices":[{"index":0,"delta":{"content":null,"reasoning_content":null,"tool_calls":[{"id":null,"index":0,"type":"function","function":{"name":null,"arguments":"}"}}]},"logprobs":null,"finish_reason":null,"matched_stop":null}],"usage":null}
+
+data:{"id":"req-8nes9m-1767693387195350395|ep-4makks-1765348062249697557","object":"chat.completion.chunk","created":1767693388,"model":"kat-coder-pro-v1","choices":[{"index":0,"delta":{"content":null,"reasoning_content":null,"tool_calls":null},"logprobs":null,"finish_reason":"tool_calls","matched_stop":151645}],"usage":null}
+
+data:{"id":"req-8nes9m-1767693387195350395|ep-4makks-1765348062249697557","object":"chat.completion.chunk","created":1767693388,"model":"kat-coder-pro-v1","choices":[],"usage":{"prompt_tokens":11790,"total_tokens":11872,"completion_tokens":82,"prompt_tokens_details":{"cached_tokens":11458},"reasoning_tokens":0,"metrics":{"ttft":124,"ttft_norm":124,"tpot":13}}}
+
+data:[DONE]
+

@@ -1,0 +1,172 @@
+name: Chromatic
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - '**'
+  workflow_dispatch:
+
+# Cancel in-progress jobs when new workflow is triggered
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  playwright:
+    runs-on: ubuntu-24.04-8core
+
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    env:
+      NODE_ENV: development
+      POSTGRES_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      POSTGRES_CONNECT_TIMEOUT: 30000
+      POSTGRES_MAX_QUERY_TIME: 30000
+      DEBUG_SHOW_DEV_UI: 'true' # Enable fake login for E2E tests
+      PORT: '3000'
+      DOTENV_PRIVATE_KEY_DEVELOPMENT: ${{ secrets.DOTENV_PRIVATE_KEY_DEVELOPMENT }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run database migrations
+        run: pnpm drizzle migrate
+        env:
+          DOTENV_PRIVATE_KEY_DEVELOPMENT: ${{ secrets.DOTENV_PRIVATE_KEY_DEVELOPMENT }}
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright tests
+        run: pnpm test:e2e
+        continue-on-error: true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: ./test-results
+          retention-days: 7
+
+  chromatic:
+    needs: playwright
+    runs-on: ubuntu-latest
+    if: always() # Run even if playwright job fails
+    continue-on-error: true # Make this check optional - don't block PR merges
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Storybook dependencies
+        run: |
+          cd storybook
+          pnpm install --frozen-lockfile
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: test-results
+          path: ./test-results
+
+      - name: Generate Stories from Playwright Screenshots
+        run: |
+          cd storybook
+          pnpm generate-screenshot-stories
+
+      - name: Build Storybook
+        run: |
+          cd storybook
+          pnpm build-storybook
+
+      - name: Run Chromatic
+        uses: chromaui/action@latest
+        continue-on-error: true
+        with:
+          projectToken: ${{ secrets.CHROMATIC_PROJECT_TOKEN }}
+          storybookBaseDir: storybook/
+          storybookBuildDir: storybook/storybook-static
+          onlyChanged: true
+          exitOnceUploaded: ${{ github.event_name == 'pull_request' }}
+          exitZeroOnChanges: true
+          autoAcceptChanges: ${{ github.ref == 'refs/heads/main' && 'main' || '' }}
+          # Skip dependabot PRs and renovate PRs using glob patterns
+          skip: '@(dependabot/**|renovate/**)'
+
+      # Add a summary of the Chromatic build results to the workflow summary
+      - name: Chromatic Build Summary
+        if: always() && steps.chromatic.outputs.url != ''
+        run: |
+          echo "## Chromatic Build Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Build Information" >> $GITHUB_STEP_SUMMARY
+          echo "- **Build URL:** [View on Chromatic](${{ steps.chromatic.outputs.url }})" >> $GITHUB_STEP_SUMMARY
+          echo "- **Changes:** ${{ steps.chromatic.outputs.changeCount || 'N/A' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Components:** ${{ steps.chromatic.outputs.componentCount || 'N/A' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Stories:** ${{ steps.chromatic.outputs.storyCount || 'N/A' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Included in Build" >> $GITHUB_STEP_SUMMARY
+          echo "- Component stories from Storybook" >> $GITHUB_STEP_SUMMARY
+          echo "- Playwright E2E screenshots (converted to stories)" >> $GITHUB_STEP_SUMMARY
+
+          if [[ "${{ steps.chromatic.outputs.changeCount }}" != "0" ]]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ **Visual changes detected!** Please review in Chromatic." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "✅ **No visual changes detected.**" >> $GITHUB_STEP_SUMMARY
+          fi
