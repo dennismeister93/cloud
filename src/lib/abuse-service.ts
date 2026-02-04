@@ -3,13 +3,15 @@
  */
 
 import { type NextRequest } from 'next/server';
-import { ABUSE_SERVICE_SECRET } from '@/lib/config.server';
-import { IS_DEVELOPMENT } from '@/lib/constants';
+import {
+  ABUSE_SERVICE_SECRET,
+  ABUSE_SERVICE_CF_ACCESS_CLIENT_ID,
+  ABUSE_SERVICE_CF_ACCESS_CLIENT_SECRET,
+  ABUSE_SERVICE_URL,
+} from '@/lib/config.server';
 import { getFraudDetectionHeaders } from '@/lib/utils';
 import type { OpenRouterChatCompletionRequest } from '@/lib/providers/openrouter/types';
 import 'server-only';
-
-const ABUSE_SERVICE_URL = IS_DEVELOPMENT ? 'http://localhost:8787' : 'https://abuse.kiloapps.io';
 
 /**
  * Extract full prompts from an OpenRouter chat completion request.
@@ -102,7 +104,7 @@ export type ClassificationContext = {
 };
 
 /**
- * Response returned by the /classify endpoint
+ * Response returned by the /api/classify endpoint
  */
 export type AbuseClassificationResponse = {
   /** High-level decision for the gateway */
@@ -196,18 +198,30 @@ export type UsagePayload = {
 export async function classifyRequest(
   payload: UsagePayload
 ): Promise<AbuseClassificationResponse | null> {
+  if (!ABUSE_SERVICE_URL) {
+    return null;
+  }
+
   if (!ABUSE_SERVICE_SECRET) {
     console.warn('ABUSE_SERVICE_SECRET not configured, skipping abuse classification');
     return null;
   }
 
   try {
-    const response = await fetch(`${ABUSE_SERVICE_URL}/classify`, {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'X-Service-Secret': ABUSE_SERVICE_SECRET,
+    };
+
+    // Add Cloudflare Access headers in production (validated at startup in config.server.ts)
+    if (ABUSE_SERVICE_CF_ACCESS_CLIENT_ID && ABUSE_SERVICE_CF_ACCESS_CLIENT_SECRET) {
+      headers['CF-Access-Client-Id'] = ABUSE_SERVICE_CF_ACCESS_CLIENT_ID;
+      headers['CF-Access-Client-Secret'] = ABUSE_SERVICE_CF_ACCESS_CLIENT_SECRET;
+    }
+
+    const response = await fetch(`${ABUSE_SERVICE_URL}/api/classify`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Service-Secret': ABUSE_SERVICE_SECRET,
-      },
+      headers,
       body: JSON.stringify(payload),
     });
 
