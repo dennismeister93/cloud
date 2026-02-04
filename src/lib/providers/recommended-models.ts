@@ -14,7 +14,7 @@ export const recommendedModels = [
   {
     public_id: KILO_AUTO_MODEL_ID,
     tool_choice_required: false,
-    random_vercel_routing: false,
+    random_vercel_routing: true,
   },
   {
     public_id: minimax_m21_free_model.is_enabled
