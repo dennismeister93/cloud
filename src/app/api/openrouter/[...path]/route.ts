@@ -50,7 +50,11 @@ import {
 import { checkFreeModelRateLimit, logFreeModelRequest } from '@/lib/free-model-rate-limiter';
 import { classifyAbuse } from '@/lib/abuse-service';
 import { KILO_AUTO_MODEL_ID } from '@/lib/kilo-auto-model';
-import { emitApiMetrics, getToolsAvailable, getToolsUsed } from '@/lib/o11y/api-metrics.server';
+import {
+  emitApiMetricsForResponse,
+  getToolsAvailable,
+  getToolsUsed,
+} from '@/lib/o11y/api-metrics.server';
 
 const MAX_TOKENS_LIMIT = 99999999999; // GPT4.1 default is ~32k
 
@@ -369,15 +373,19 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
   });
   const ttfbMs = Math.max(0, Math.round(performance.now() - requestStartedAt));
 
-  emitApiMetrics({
-    clientSecret: 'TODO',
-    provider: provider.id,
-    requestedModel: requestedModelLowerCased,
-    resolvedModel: requestBodyParsed.model,
-    toolsAvailable,
-    toolsUsed,
-    ttfbMs,
-  });
+  emitApiMetricsForResponse(
+    {
+      clientSecret: 'TODO',
+      provider: provider.id,
+      requestedModel: requestedModelLowerCased,
+      resolvedModel: requestBodyParsed.model,
+      toolsAvailable,
+      toolsUsed,
+      ttfbMs,
+    },
+    response.clone(),
+    requestStartedAt
+  );
   usageContext.status_code = response.status;
 
   // Handle OpenRouter 402 errors - don't pass them through to the client. We need to pay, not them.

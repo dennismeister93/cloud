@@ -9,6 +9,8 @@ export type ApiMetricsParams = {
   resolvedModel: string;
   toolsAvailable: string[];
   toolsUsed: string[];
+  ttfbMs: number;
+  completeRequestMs: number;
 };
 
 export function getToolsAvailable(
@@ -84,4 +86,51 @@ export function emitApiMetrics(params: ApiMetricsParams) {
       // Best-effort only; never fail the caller request.
     });
   });
+}
+
+export function emitApiMetricsForResponse(
+  params: Omit<ApiMetricsParams, 'completeRequestMs'>,
+  responseToDrain: Response,
+  requestStartedAt: number
+) {
+  if (!apiMetricsUrl) return;
+
+  after(async () => {
+    try {
+      // Draining the body lets us measure the full upstream response time.
+      await drainResponseBody(responseToDrain);
+    } catch {
+      // Ignore body read errors; we still emit a timing.
+    }
+
+    const completeRequestMs = Math.max(0, Math.round(performance.now() - requestStartedAt));
+
+    await fetch(apiMetricsUrl, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        ...params,
+        completeRequestMs,
+      } satisfies ApiMetricsParams),
+    }).catch(() => {
+      // Best-effort only; never fail the caller request.
+    });
+  });
+}
+
+async function drainResponseBody(response: Response): Promise<void> {
+  const body = response.body;
+  if (!body) return;
+
+  const reader = body.getReader();
+  try {
+    while (true) {
+      const { done } = await reader.read();
+      if (done) return;
+    }
+  } finally {
+    reader.releaseLock();
+  }
 }
