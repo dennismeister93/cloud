@@ -16,7 +16,6 @@ const ApiMetricsParamsSchema = z
 		ttfbMs: z.number().int().nonnegative(),
 		completeRequestMs: z.number().int().nonnegative(),
 		statusCode: z.number().int().min(100).max(599),
-		errorMessage: z.string().optional(),
 		tokens: z
 			.object({
 				inputTokens: z.number().int().nonnegative().optional(),
@@ -35,15 +34,6 @@ const ApiMetricsParamsSchema = z
 				message: 'Unknown clientSecret',
 			});
 		}
-
-		if (value.statusCode < 400) return;
-		if (value.errorMessage && value.errorMessage.trim().length > 0) return;
-
-		ctx.addIssue({
-			code: 'custom',
-			path: ['errorMessage'],
-			message: 'errorMessage is required when statusCode indicates failure',
-		});
 	})
 	.transform((value) => {
 		const clientName = getClientNameFromSecret(value.clientSecret);

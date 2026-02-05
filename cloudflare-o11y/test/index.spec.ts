@@ -38,7 +38,6 @@ describe('Hello World worker', () => {
 				ttfbMs: 45,
 				completeRequestMs: 123,
 				statusCode: 429,
-				errorMessage: 'rate limited',
 				tokens: {
 					inputTokens: 10,
 					outputTokens: 20,
