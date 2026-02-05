@@ -257,7 +257,7 @@ export function UserAdminCreditGrant({
                   }
                   onChange={e => setExpirationDate(e.target.value)}
                   id="date"
-                  disabled={neverExpire}
+                  disabled={!selectedCredit || neverExpire}
                 />
               </div>
               <div className="flex items-end">
