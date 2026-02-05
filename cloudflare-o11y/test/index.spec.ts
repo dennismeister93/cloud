@@ -21,4 +21,50 @@ describe('Hello World worker', () => {
 		const response = await SELF.fetch('https://example.com');
 		expect(await response.text()).toMatchInlineSnapshot(`"Hello World!"`);
 	});
+
+	it('validates /ingest/api-metrics payload shape', async () => {
+		const response = await SELF.fetch('https://example.com/ingest/api-metrics', {
+			method: 'POST',
+			headers: {
+				'content-type': 'application/json',
+			},
+			body: JSON.stringify({
+				clientName: 'kilo-cli',
+				clientSecret: 'test-secret',
+				provider: 'openai',
+				requestedModel: 'kilo/auto',
+				resolvedModel: 'anthropic/claude-sonnet-4.5',
+				toolsAvailable: ['function:get_weather', 'function:searchDocs'],
+				toolsUsed: ['function:searchDocs'],
+				ttfbMs: 45,
+				completeRequestMs: 123,
+				statusCode: 429,
+				success: false,
+				errorMessage: 'rate limited',
+				tokens: {
+					inputTokens: 10,
+					outputTokens: 20,
+					cacheWriteTokens: 0,
+					cacheHitTokens: 3,
+					totalTokens: 30,
+				},
+			}),
+		});
+
+		expect(response.status).toBe(204);
+	});
+
+	it('rejects missing params in /ingest/api-metrics', async () => {
+		const response = await SELF.fetch('https://example.com/ingest/api-metrics', {
+			method: 'POST',
+			headers: {
+				'content-type': 'application/json',
+			},
+			body: JSON.stringify({}),
+		});
+
+		expect(response.status).toBe(400);
+		const json = await response.json();
+		expect(json).toMatchObject({ error: 'Invalid input' });
+	});
 });
