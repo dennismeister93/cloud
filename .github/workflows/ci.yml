@@ -62,7 +62,9 @@ jobs:
         with:
           lfs: true
           fetch-depth: 0
-          ref: ${{ github.head_ref }}
+          # For internal PRs, checkout the head branch so we can push auto-fixes
+          # For fork PRs, use the merge commit (default) - auto-fixes won't be pushed
+          ref: ${{ github.event.pull_request.head.repo.full_name == github.repository && github.head_ref || '' }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v2
@@ -120,7 +122,13 @@ jobs:
 
           echo "Changes detected, committing..."
           git commit -n -F ${{ runner.temp }}/TMP_CI_commit_msg.txt
-          git push
+
+          # Only push for internal PRs (not forks) - we don't have write access to fork repos
+          if [ "${{ github.event.pull_request.head.repo.full_name }}" = "${{ github.repository }}" ]; then
+            git push
+          else
+            echo "::warning::Auto-fix changes detected but cannot push to fork PR. Please apply the fixes manually."
+          fi
 
           exit $TEST_EXIT_CODE
 
@@ -136,7 +144,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           lfs: true
-          ref: ${{ github.head_ref }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v2
@@ -184,7 +191,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           lfs: true
-          ref: ${{ github.head_ref }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v2
@@ -270,7 +276,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           lfs: true
-          ref: ${{ github.head_ref }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v2
@@ -315,7 +320,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           lfs: true
-          ref: ${{ github.head_ref }}
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v2
