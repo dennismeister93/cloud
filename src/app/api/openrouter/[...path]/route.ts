@@ -50,7 +50,7 @@ import {
 import { checkFreeModelRateLimit, logFreeModelRequest } from '@/lib/free-model-rate-limiter';
 import { classifyAbuse } from '@/lib/abuse-service';
 import { KILO_AUTO_MODEL_ID } from '@/lib/kilo-auto-model';
-import { emitApiMetrics } from '@/lib/o11y/api-metrics.server';
+import { emitApiMetrics, getToolsAvailable } from '@/lib/o11y/api-metrics.server';
 
 const MAX_TOKENS_LIMIT = 99999999999; // GPT4.1 default is ~32k
 
@@ -208,12 +208,14 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
     taskId
   );
 
+  const toolsAvailable = getToolsAvailable(requestBodyParsed.tools);
+
   emitApiMetrics({
-    clientName: 'kilo-gateway',
     clientSecret: 'TODO',
     provider: provider.id,
     requestedModel: requestedModelLowerCased,
     resolvedModel: requestBodyParsed.model,
+    toolsAvailable,
   });
   console.debug(`Routing request to ${provider.id}`);
 
