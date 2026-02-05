@@ -23,7 +23,7 @@ export class SqlStore {
       logger.error('error executing query', {
         error: errorDetails,
         query,
-        paramsCount: Array.isArray(params) ? params.length : undefined,
+        paramsCount: Object.keys(params ?? {}).length,
       });
       throw e;
     }
