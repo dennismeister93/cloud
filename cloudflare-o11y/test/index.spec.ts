@@ -1,4 +1,4 @@
-import { env, createExecutionContext, waitOnExecutionContext, SELF } from 'cloudflare:test';
+import { createExecutionContext, waitOnExecutionContext, SELF } from 'cloudflare:test';
 import { describe, it, expect } from 'vitest';
 import worker from '../src/index';
 
@@ -6,13 +6,21 @@ import worker from '../src/index';
 // `Request` to pass to `worker.fetch()`.
 const IncomingRequest = Request<unknown, IncomingRequestCfProperties>;
 
+const TEST_CLIENT_SECRET = 'test-client-secret-value';
+
+function makeTestEnv(): Env {
+	return {
+		O11Y_KILO_GATEWAY_CLIENT_SECRET: {
+			get: async () => TEST_CLIENT_SECRET,
+		},
+	};
+}
+
 describe('Hello World worker', () => {
 	it('responds with Hello World! (unit style)', async () => {
 		const request = new IncomingRequest('http://example.com');
-		// Create an empty context to pass to `worker.fetch()`.
 		const ctx = createExecutionContext();
-		const response = await worker.fetch(request, env, ctx);
-		// Wait for all `Promise`s passed to `ctx.waitUntil()` to settle before running test assertions
+		const response = await worker.fetch(request, makeTestEnv(), ctx);
 		await waitOnExecutionContext(ctx);
 		expect(await response.text()).toMatchInlineSnapshot(`"Hello World!"`);
 	});
@@ -23,13 +31,11 @@ describe('Hello World worker', () => {
 	});
 
 	it('validates /ingest/api-metrics payload shape', async () => {
-		const response = await SELF.fetch('https://example.com/ingest/api-metrics', {
+		const request = new IncomingRequest('https://example.com/ingest/api-metrics', {
 			method: 'POST',
-			headers: {
-				'content-type': 'application/json',
-			},
+			headers: { 'content-type': 'application/json' },
 			body: JSON.stringify({
-				clientSecret: 'TODO',
+				clientSecret: TEST_CLIENT_SECRET,
 				kiloUserId: 'user_123',
 				organizationId: 'org_456',
 				isAnonymous: false,
@@ -54,18 +60,51 @@ describe('Hello World worker', () => {
 			}),
 		});
 
+		const ctx = createExecutionContext();
+		const response = await worker.fetch(request, makeTestEnv(), ctx);
+		await waitOnExecutionContext(ctx);
 		expect(response.status).toBe(204);
 	});
 
-	it('rejects missing params in /ingest/api-metrics', async () => {
-		const response = await SELF.fetch('https://example.com/ingest/api-metrics', {
+	it('rejects unknown clientSecret', async () => {
+		const request = new IncomingRequest('https://example.com/ingest/api-metrics', {
 			method: 'POST',
-			headers: {
-				'content-type': 'application/json',
-			},
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({
+				clientSecret: 'wrong-secret',
+				kiloUserId: 'user_123',
+				isAnonymous: false,
+				isStreaming: true,
+				userByok: false,
+				provider: 'openai',
+				requestedModel: 'kilo/auto',
+				resolvedModel: 'anthropic/claude-sonnet-4.5',
+				toolsAvailable: [],
+				toolsUsed: [],
+				ttfbMs: 45,
+				completeRequestMs: 123,
+				statusCode: 200,
+			}),
+		});
+
+		const ctx = createExecutionContext();
+		const response = await worker.fetch(request, makeTestEnv(), ctx);
+		await waitOnExecutionContext(ctx);
+		expect(response.status).toBe(403);
+		const json = await response.json();
+		expect(json).toMatchObject({ error: 'Unknown clientSecret' });
+	});
+
+	it('rejects missing params in /ingest/api-metrics', async () => {
+		const request = new IncomingRequest('https://example.com/ingest/api-metrics', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
 			body: JSON.stringify({}),
 		});
 
+		const ctx = createExecutionContext();
+		const response = await worker.fetch(request, makeTestEnv(), ctx);
+		await waitOnExecutionContext(ctx);
 		expect(response.status).toBe(400);
 		const json = await response.json();
 		expect(json).toMatchObject({ error: 'Invalid request body' });

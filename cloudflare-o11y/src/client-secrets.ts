@@ -1,9 +1,8 @@
-const clientSecretToClientName = new Map<string, string>([['TODO', 'kilo-gateway']]);
+export async function getClientName(clientSecret: string, env: Env): Promise<string | null> {
+	const trimmed = clientSecret.trim();
+	if (!trimmed) return null;
 
-export function getClientNameFromSecret(clientSecret: string): string | null {
-	const clientSecretTrimmed = clientSecret.trim();
-	if (!clientSecretTrimmed) return null;
+	if (trimmed === (await env.O11Y_KILO_GATEWAY_CLIENT_SECRET.get())) return 'kilo-gateway';
 
-	const clientName = clientSecretToClientName.get(clientSecretTrimmed);
-	return clientName ?? null;
+	return null;
 }

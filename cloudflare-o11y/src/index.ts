@@ -1,60 +1,46 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { zodJsonValidator } from './util/validation';
-import { getClientNameFromSecret } from './client-secrets';
+import { getClientName } from './client-secrets';
 
-const app = new Hono();
+const app = new Hono<{ Bindings: Env }>();
 
-const ApiMetricsParamsSchema = z
-	.object({
-		clientSecret: z.string().min(1),
-		kiloUserId: z.string().min(1),
-		organizationId: z.string().min(1).optional(),
-		isAnonymous: z.boolean(),
-		isStreaming: z.boolean(),
-		userByok: z.boolean(),
-		mode: z.string().min(1).optional(),
-		provider: z.string().min(1),
-		requestedModel: z.string().min(1),
-		resolvedModel: z.string().min(1),
-		toolsAvailable: z.array(z.string().min(1)),
-		toolsUsed: z.array(z.string().min(1)),
-		ttfbMs: z.number().int().nonnegative(),
-		completeRequestMs: z.number().int().nonnegative(),
-		statusCode: z.number().int().min(100).max(599),
-		tokens: z
-			.object({
-				inputTokens: z.number().int().nonnegative().optional(),
-				outputTokens: z.number().int().nonnegative().optional(),
-				cacheWriteTokens: z.number().int().nonnegative().optional(),
-				cacheHitTokens: z.number().int().nonnegative().optional(),
-				totalTokens: z.number().int().nonnegative().optional(),
-			})
-			.optional(),
-	})
-	.superRefine((value, ctx) => {
-		if (!getClientNameFromSecret(value.clientSecret)) {
-			ctx.addIssue({
-				code: 'custom',
-				path: ['clientSecret'],
-				message: 'Unknown clientSecret',
-			});
-		}
-	})
-	.transform((value) => {
-		const clientName = getClientNameFromSecret(value.clientSecret);
-		if (!clientName) throw new Error('Unknown clientSecret');
-
-		return {
-			...value,
-			clientName,
-		};
-	});
+const ApiMetricsParamsSchema = z.object({
+	clientSecret: z.string().min(1),
+	kiloUserId: z.string().min(1),
+	organizationId: z.string().min(1).optional(),
+	isAnonymous: z.boolean(),
+	isStreaming: z.boolean(),
+	userByok: z.boolean(),
+	mode: z.string().min(1).optional(),
+	provider: z.string().min(1),
+	requestedModel: z.string().min(1),
+	resolvedModel: z.string().min(1),
+	toolsAvailable: z.array(z.string().min(1)),
+	toolsUsed: z.array(z.string().min(1)),
+	ttfbMs: z.number().int().nonnegative(),
+	completeRequestMs: z.number().int().nonnegative(),
+	statusCode: z.number().int().min(100).max(599),
+	tokens: z
+		.object({
+			inputTokens: z.number().int().nonnegative().optional(),
+			outputTokens: z.number().int().nonnegative().optional(),
+			cacheWriteTokens: z.number().int().nonnegative().optional(),
+			cacheHitTokens: z.number().int().nonnegative().optional(),
+			totalTokens: z.number().int().nonnegative().optional(),
+		})
+		.optional(),
+});
 
 app.get('/', (c) => c.text('Hello World!'));
 
 app.post('/ingest/api-metrics', zodJsonValidator(ApiMetricsParamsSchema), async (c) => {
-	c.req.valid('json');
+	const params = c.req.valid('json');
+
+	const clientName = await getClientName(params.clientSecret, c.env);
+	if (!clientName) {
+		return c.json({ success: false, error: 'Unknown clientSecret' }, 403);
+	}
 
 	// TODO(phase-1a): emit/forward metrics to storage/analytics backend.
 	return c.body(null, 204);
