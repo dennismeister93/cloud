@@ -388,6 +388,7 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
       toolsUsed,
       ttfbMs,
       statusCode: response.status,
+      ipAddress,
     },
     response.clone(),
     requestStartedAt

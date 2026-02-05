@@ -4,7 +4,7 @@ import type { ApiMetricsParamsSchema } from './index';
 type ApiMetricsParams = z.infer<typeof ApiMetricsParamsSchema>;
 
 export function captureApiMetrics(params: ApiMetricsParams, clientName: string, env: Env): Promise<Response> {
-	const { clientSecret: _, ...properties } = params;
+	const { clientSecret: _, ipAddress, ...properties } = params;
 
 	return fetch(`${env.POSTHOG_HOST}/capture/`, {
 		method: 'POST',
@@ -13,6 +13,9 @@ export function captureApiMetrics(params: ApiMetricsParams, clientName: string, 
 			api_key: env.POSTHOG_API_KEY,
 			event: 'o11y_api_metrics',
 			distinct_id: params.kiloUserId,
+			// Forward the user's real IP so PostHog resolves GeoIP from it
+			// rather than the worker's IP.
+			...(ipAddress ? { ip: ipAddress } : {}),
 			properties: {
 				...properties,
 				clientName,
