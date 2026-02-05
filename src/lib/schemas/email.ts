@@ -20,9 +20,14 @@ const KILOCODE_DOMAIN = '@kilocode.ai';
 
 /**
  * Checks if an email is from the kilocode.ai domain.
+ * Uses strict matching to ensure the domain is exactly @kilocode.ai,
+ * not a subdomain or lookalike (e.g., @henkkilocode.ai).
  */
 function isKilocodeDomain(email: string): boolean {
-  return email.toLowerCase().endsWith(KILOCODE_DOMAIN);
+  const atIndex = email.lastIndexOf('@');
+  if (atIndex === -1) return false;
+  const domain = email.slice(atIndex).toLowerCase();
+  return domain === KILOCODE_DOMAIN;
 }
 
 /**
