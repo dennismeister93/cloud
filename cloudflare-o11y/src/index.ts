@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
+import { zodJsonValidator } from './util/validation';
 
 const app = new Hono();
 
@@ -40,24 +41,8 @@ const ApiMetricsParamsSchema = z
 
 app.get('/', (c) => c.text('Hello World!'));
 
-app.post('/ingest/api-metrics', async (c) => {
-	let body: unknown;
-	try {
-		body = await c.req.json();
-	} catch {
-		return c.json({ error: 'Invalid JSON body' }, 400);
-	}
-
-	const parsed = ApiMetricsParamsSchema.safeParse(body);
-	if (!parsed.success) {
-		return c.json(
-			{
-				error: 'Invalid input',
-				issues: parsed.error.issues,
-			},
-			400,
-		);
-	}
+app.post('/ingest/api-metrics', zodJsonValidator(ApiMetricsParamsSchema), async (c) => {
+	c.req.valid('json');
 
 	// TODO(phase-1a): emit/forward metrics to storage/analytics backend.
 	return c.body(null, 204);
