@@ -1,5 +1,5 @@
 import { CloudChatPageWrapper } from './CloudChatPageWrapper';
 
-export default async function PersonalCloudNextChatPage() {
+export default function PersonalCloudNextChatPage() {
   return <CloudChatPageWrapper />;
 }
