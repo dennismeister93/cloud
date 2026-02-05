@@ -1,6 +1,15 @@
 import { after } from 'next/server';
 import { O11Y_SERVICE_URL } from '@/lib/config.server';
 import type OpenAI from 'openai';
+import type { CompletionUsage } from 'openai/resources/completions';
+
+export type ApiMetricsTokens = {
+  inputTokens?: number;
+  outputTokens?: number;
+  cacheWriteTokens?: number;
+  cacheHitTokens?: number;
+  totalTokens?: number;
+};
 
 export type ApiMetricsParams = {
   clientSecret: string;
@@ -12,7 +21,32 @@ export type ApiMetricsParams = {
   ttfbMs: number;
   completeRequestMs: number;
   statusCode: number;
+  tokens?: ApiMetricsTokens;
 };
+
+export function getTokensFromCompletionUsage(
+  usage: CompletionUsage | null | undefined
+): ApiMetricsTokens | undefined {
+  if (!usage) return undefined;
+
+  const tokens: ApiMetricsTokens = {
+    inputTokens: usage.prompt_tokens,
+    outputTokens: usage.completion_tokens,
+    cacheHitTokens: usage.prompt_tokens_details?.cached_tokens,
+    totalTokens: usage.total_tokens,
+    // cacheWriteTokens isn't reported in OpenAI/OpenRouter usage.
+    cacheWriteTokens: undefined,
+  };
+
+  const hasAny =
+    tokens.inputTokens !== undefined ||
+    tokens.outputTokens !== undefined ||
+    tokens.cacheWriteTokens !== undefined ||
+    tokens.cacheHitTokens !== undefined ||
+    tokens.totalTokens !== undefined;
+
+  return hasAny ? tokens : undefined;
+}
 
 export function getToolsAvailable(
   tools: Array<OpenAI.Chat.Completions.ChatCompletionTool> | undefined
