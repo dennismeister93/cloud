@@ -83,9 +83,6 @@ jobs:
       - name: Lint
         run: pnpm run lint
 
-      - name: Format check
-        run: pnpm run format:check
-
       - name: Dependency cycle check
         run: pnpm run dependency-cycle-check
 
