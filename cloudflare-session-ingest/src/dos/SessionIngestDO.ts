@@ -121,6 +121,7 @@ export class SessionIngestDO extends DurableObject<Env> {
       orgId: undefined,
     };
 
+    let hasSessionOpen = false;
     let closeReason: string | undefined;
 
     for (const item of payload) {
@@ -148,7 +149,9 @@ export class SessionIngestDO extends DurableObject<Env> {
         }
       }
 
-      if (item.type === 'session_close') {
+      if (item.type === 'session_open') {
+        hasSessionOpen = true;
+      } else if (item.type === 'session_close') {
         closeReason = item.data.reason;
       }
     }
@@ -165,11 +168,10 @@ export class SessionIngestDO extends DurableObject<Env> {
       }
     }
 
-    // Non-close data means the session is (re)opening. Clear prior close
-    // state so metrics can be re-computed and re-emitted on the next alarm.
-    // The POST_CLOSE_DRAIN_MS window handles late stragglers that arrive
-    // before the drain alarm fires.
-    if (!closeReason) {
+    // session_open means a new turn is starting. Clear prior close state so
+    // metrics are re-computed on the next alarm. For legacy clients that
+    // never send open/close, the inactivity alarm handles abandonment.
+    if (hasSessionOpen) {
       this.sql.exec(`DELETE FROM ingest_meta WHERE key IN ('metricsEmitted', 'closeReason')`);
     }
 
