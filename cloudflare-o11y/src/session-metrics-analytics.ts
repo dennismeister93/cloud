@@ -17,6 +17,7 @@ import type { SessionMetricsParams } from './session-metrics-schema';
  *   double7 = totalCost
  *   double8 = compactionCount
  *   double9 = stuckToolCallCount
+ *   double10 = autoCompactionCount
  */
 export function writeSessionMetricsDataPoint(params: SessionMetricsParams, env: Env): void {
 	const totalTokensSum =
@@ -39,6 +40,7 @@ export function writeSessionMetricsDataPoint(params: SessionMetricsParams, env: 
 			params.totalCost,
 			params.compactionCount,
 			params.stuckToolCallCount,
+			params.autoCompactionCount,
 		],
 	});
 }

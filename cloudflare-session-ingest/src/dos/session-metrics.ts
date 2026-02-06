@@ -108,13 +108,15 @@ const PartTypeSchema = z.object({
 
 // -- Core aggregation --
 
+type Timestamped<T> = { value: T; time: number };
+
 type Accumulator = {
   sessionCreatedAt: number | undefined;
   sessionUpdatedAt: number | undefined;
   firstUserMessageCreatedAt: number | undefined;
   firstAssistantMessageCreatedAt: number | undefined;
-  lastAssistantError: string | undefined;
-  lastAssistantFinish: string | undefined;
+  lastAssistantError: Timestamped<string> | undefined;
+  lastAssistantFinish: Timestamped<string> | undefined;
   totalTurns: number;
   totalSteps: number;
   toolCallsByType: Record<string, number>;
@@ -208,10 +210,16 @@ function processMessage(acc: Accumulator, raw: unknown) {
       if (msg.error) {
         acc.totalErrors++;
         acc.errorsByType[msg.error.name] = (acc.errorsByType[msg.error.name] ?? 0) + 1;
-        acc.lastAssistantError = msg.error.name;
+        if (acc.lastAssistantError === undefined || t > acc.lastAssistantError.time) {
+          acc.lastAssistantError = { value: msg.error.name, time: t };
+        }
       }
 
-      if (msg.finish) acc.lastAssistantFinish = msg.finish;
+      if (msg.finish) {
+        if (acc.lastAssistantFinish === undefined || t > acc.lastAssistantFinish.time) {
+          acc.lastAssistantFinish = { value: msg.finish, time: t };
+        }
+      }
     }
   }
 }
@@ -291,7 +299,7 @@ export function computeSessionMetrics(
 
   let stuckToolCallCount = 0;
   for (const count of acc.toolCallSignatures.values()) {
-    if (count > 1) stuckToolCallCount += count;
+    if (count >= 3) stuckToolCallCount += count;
   }
 
   let sessionDurationMs = 0;
@@ -326,8 +334,8 @@ export function computeSessionMetrics(
     autoCompactionCount: acc.autoCompactionCount,
     terminationReason: deriveTerminationReason(
       closeReason,
-      acc.lastAssistantError,
-      acc.lastAssistantFinish
+      acc.lastAssistantError?.value,
+      acc.lastAssistantFinish?.value
     ),
     platform: acc.platform,
     organizationId: acc.organizationId,

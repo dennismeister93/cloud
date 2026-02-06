@@ -77,8 +77,13 @@ describe('computeSessionMetrics', () => {
     expect(result.totalErrors).toBe(1);
   });
 
-  it('detects stuck tool calls (duplicate tool+input)', () => {
+  it('detects stuck tool calls (3+ identical tool+input)', () => {
     const items = [
+      makeItem('part', {
+        type: 'tool',
+        tool: 'read_file',
+        state: { status: 'completed', input: { path: '/a' } },
+      }),
       makeItem('part', {
         type: 'tool',
         tool: 'read_file',
@@ -96,8 +101,25 @@ describe('computeSessionMetrics', () => {
       }),
     ];
     const result = computeSessionMetrics(items, null);
-    // 2 calls with same input = 2 stuck
-    expect(result.stuckToolCallCount).toBe(2);
+    // 3 calls with same input = 3 stuck; the unique /b call is not counted
+    expect(result.stuckToolCallCount).toBe(3);
+  });
+
+  it('does not count 2 identical tool calls as stuck', () => {
+    const items = [
+      makeItem('part', {
+        type: 'tool',
+        tool: 'read_file',
+        state: { status: 'completed', input: { path: '/a' } },
+      }),
+      makeItem('part', {
+        type: 'tool',
+        tool: 'read_file',
+        state: { status: 'completed', input: { path: '/a' } },
+      }),
+    ];
+    const result = computeSessionMetrics(items, null);
+    expect(result.stuckToolCallCount).toBe(0);
   });
 
   it('sums tokens from assistant messages', () => {
