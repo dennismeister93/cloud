@@ -17,7 +17,12 @@ import { Button } from '@/components/ui/button';
 import { MessageContent } from '@/components/cloud-agent/MessageContent';
 import { TypingIndicator } from '@/components/cloud-agent/TypingIndicator';
 import type { CloudMessage } from '@/components/cloud-agent/types';
-import { filterAppBuilderMessages } from './utils/filterMessages';
+import {
+  filterAppBuilderMessages,
+  paginateMessages,
+  getMessageRole,
+  DEFAULT_VISIBLE_SESSIONS,
+} from './utils/filterMessages';
 import { PromptInput } from '@/components/app-builder/PromptInput';
 import { useProject } from './ProjectSession';
 import type { Images } from '@/lib/images-schema';
@@ -33,15 +38,6 @@ type AppBuilderChatProps = {
   onNewProject: () => void;
   organizationId?: string;
 };
-
-/**
- * Convert CloudMessage to display format with role
- */
-function getMessageRole(msg: CloudMessage): 'user' | 'assistant' | 'system' {
-  // user_feedback messages should display as user messages
-  if (msg.say === 'user_feedback') return 'user';
-  return msg.type;
-}
 
 const isDev = process.env.NODE_ENV === 'development';
 
@@ -197,7 +193,15 @@ export function AppBuilderChat({ onNewProject, organizationId }: AppBuilderChatP
   const [messageUuid, setMessageUuid] = useState(() => crypto.randomUUID());
   const [selectedModel, setSelectedModel] = useState<string>(projectModel ?? '');
   const [hasImages, setHasImages] = useState(false);
+  // Track the initial projectModel to detect when a new project loads
+  const initialProjectModelRef = useRef(projectModel);
+  const [visibleSessionCount, setVisibleSessionCount] = useState(DEFAULT_VISIBLE_SESSIONS);
   const trpc = useTRPC();
+
+  // Reset pagination when project/manager changes
+  useEffect(() => {
+    setVisibleSessionCount(DEFAULT_VISIBLE_SESSIONS);
+  }, [manager]);
 
   // Fetch eligibility to check if user can use App Builder
   const personalEligibilityQuery = useQuery({
@@ -278,43 +282,49 @@ export function AppBuilderChat({ onNewProject, organizationId }: AppBuilderChatP
   // Warning state: user uploaded images but model doesn't support them
   const hasImageWarning = hasImages && !modelSupportsImages;
 
-  // Sync selectedModel with projectModel when it changes (e.g., when loading a project)
-  // This takes priority over default selection - always apply projectModel when it arrives
+  // Sync selectedModel when a different project loads (projectModel changes from initial)
   useEffect(() => {
-    if (projectModel) {
+    if (projectModel && projectModel !== initialProjectModelRef.current) {
+      initialProjectModelRef.current = projectModel;
       setSelectedModel(projectModel);
     }
   }, [projectModel]);
 
-  // Set fallback model when available and not yet selected (and no projectModel)
+  // Set fallback model when models load and no valid selection exists
   useEffect(() => {
     if (modelOptions.length === 0) {
-      if (selectedModel) {
-        setSelectedModel('');
-      }
       return;
     }
 
-    // If no model selected yet and no projectModel provided, select the default or first available
-    if (!selectedModel && !projectModel) {
-      const defaultModel = defaultsData?.defaultModel;
-      const isDefaultAllowed = defaultModel && modelOptions.some(m => m.id === defaultModel);
-      const newModel = isDefaultAllowed ? defaultModel : modelOptions[0]?.id;
-      if (newModel) {
-        setSelectedModel(newModel);
-      }
+    // If current selection is valid, keep it
+    if (selectedModel && modelOptions.some(m => m.id === selectedModel)) {
+      return;
     }
-  }, [defaultsData?.defaultModel, modelOptions, selectedModel, projectModel]);
+
+    // Pick a default model
+    const defaultModel = defaultsData?.defaultModel;
+    const isDefaultAllowed = defaultModel && modelOptions.some(m => m.id === defaultModel);
+    const newModel = isDefaultAllowed ? defaultModel : modelOptions[0]?.id;
+    if (newModel) {
+      setSelectedModel(newModel);
+    }
+  }, [defaultsData?.defaultModel, modelOptions, selectedModel]);
 
   // Filter messages to show only important ones for cleaner UX
   const filteredMessages = useMemo(() => filterAppBuilderMessages(messages), [messages]);
+
+  // Apply session-based pagination to avoid overwhelming UI with long histories
+  const { visibleMessages, hasOlderMessages } = useMemo(
+    () => paginateMessages(filteredMessages, visibleSessionCount),
+    [filteredMessages, visibleSessionCount]
+  );
 
   // Split messages into static (complete) and dynamic (streaming)
   const { staticMessages, dynamicMessages } = useMemo(() => {
     const staticMsgs: CloudMessage[] = [];
     const dynamicMsgs: CloudMessage[] = [];
 
-    filteredMessages.forEach(msg => {
+    visibleMessages.forEach(msg => {
       if (msg.partial) {
         dynamicMsgs.push(msg);
       } else {
@@ -323,7 +333,7 @@ export function AppBuilderChat({ onNewProject, organizationId }: AppBuilderChatP
     });
 
     return { staticMessages: staticMsgs, dynamicMessages: dynamicMsgs };
-  }, [filteredMessages]);
+  }, [visibleMessages]);
 
   // Auto-scroll effect
   useEffect(() => {
@@ -413,7 +423,7 @@ export function AppBuilderChat({ onNewProject, organizationId }: AppBuilderChatP
           onScroll={handleScroll}
           className="absolute inset-0 overflow-x-hidden overflow-y-auto p-4"
         >
-          {filteredMessages.length === 0 ? (
+          {visibleMessages.length === 0 ? (
             <div className="flex h-full items-center justify-center">
               <div className="text-center text-gray-400">
                 <p className="text-sm">Start building your app</p>
@@ -422,6 +432,17 @@ export function AppBuilderChat({ onNewProject, organizationId }: AppBuilderChatP
             </div>
           ) : (
             <>
+              {hasOlderMessages && (
+                <div className="flex justify-center py-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setVisibleSessionCount(prev => prev + 1)}
+                  >
+                    Load earlier messages
+                  </Button>
+                </div>
+              )}
               <StaticMessages messages={staticMessages} />
               <DynamicMessages messages={dynamicMessages} isStreaming={isStreaming} />
               {isStreaming && dynamicMessages.length === 0 && <TypingIndicator />}

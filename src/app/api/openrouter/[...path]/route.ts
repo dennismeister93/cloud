@@ -17,6 +17,7 @@ import {
   isDataCollectionRequiredOnKiloCodeOnly,
   extraRequiredProviders,
   isDeadFreeModel,
+  isSlackbotOnlyModel,
   isStealthModelOnKiloCodeOnly,
 } from '@/lib/models';
 import {
@@ -41,7 +42,6 @@ import { ENABLE_TOOL_REPAIR, repairTools } from '@/lib/tool-calling';
 import { isRateLimitedToDeathFree } from '@/lib/providers/openrouter';
 import { isFreePromptTrainingAllowed } from '@/lib/providers/openrouter/types';
 import { redactedModelResponse } from '@/lib/redactedModelResponse';
-import { minimax_m21_free_slackbot_model } from '@/lib/providers/minimax';
 import {
   createAnonymousContext,
   isAnonymousContext,
@@ -49,12 +49,11 @@ import {
 } from '@/lib/anonymous';
 import { checkFreeModelRateLimit, logFreeModelRequest } from '@/lib/free-model-rate-limiter';
 import { classifyAbuse } from '@/lib/abuse-service';
+import { KILO_AUTO_MODEL_ID } from '@/lib/kilo-auto-model';
 
 const MAX_TOKENS_LIMIT = 99999999999; // GPT4.1 default is ~32k
 
-const AUTO_MODEL_ID = 'kilo/auto';
-
-const OPUS = 'anthropic/claude-opus-4.5';
+const OPUS = 'anthropic/claude-opus-4.6';
 const SONNET = 'anthropic/claude-sonnet-4.5';
 
 // Mode → model mappings for kilo/auto routing.
@@ -119,7 +118,7 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
     return modelDoesNotExistResponse();
   }
 
-  const requestedAutoModel = requestBodyParsed.model.trim().toLowerCase() === AUTO_MODEL_ID;
+  const requestedAutoModel = requestBodyParsed.model.trim().toLowerCase() === KILO_AUTO_MODEL_ID;
 
   // "kilo/auto" is a quasi-model id that resolves to a real model based on x-kilocode-mode.
   // After this resolution, the rest of the proxy flow behaves as if the client requested
@@ -206,26 +205,15 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
   );
   console.debug(`Routing request to ${provider.id}`);
 
-  // Fire-and-forget abuse classification as early as possible
-  void classifyAbuse(request, requestBodyParsed, {
+  // Start abuse classification early (non-blocking) - we'll await it before creating usage context
+  const classifyPromise = classifyAbuse(request, requestBodyParsed, {
     kiloUserId: user.id,
     organizationId,
     projectId,
     provider: provider.id,
     isByok: !!userByok,
-  }).then(result => {
-    if (result) {
-      console.log('Abuse classification result:', {
-        verdict: result.verdict,
-        risk_score: result.risk_score,
-        signals: result.signals,
-        identity_key: result.context.identity_key,
-        kilo_user_id: user.id,
-        requested_model: originalModelIdLowerCased,
-        rps: result.context.requests_per_second,
-      });
-    }
   });
+
   // large responses may run longer than the 800s serverless function timeout, usually this value is set to 8192 tokens
   if (requestBodyParsed.max_tokens && requestBodyParsed.max_tokens > MAX_TOKENS_LIMIT) {
     console.warn(`SECURITY: Max tokens limit exceeded: ${user.id}`, {
@@ -239,7 +227,8 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
     return alphaPeriodEndedResponse();
   }
 
-  if (originalModelIdLowerCased === minimax_m21_free_slackbot_model.public_id && !internalApiUse) {
+  // Slackbot-only models are only available through Kilo for Slack (internalApiUse)
+  if (isSlackbotOnlyModel(originalModelIdLowerCased) && !internalApiUse) {
     return modelDoesNotExistResponse();
   }
 
@@ -283,15 +272,11 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
     }
 
     // Organization model allow list check.
-    // For `kilo/auto`, we intentionally skip model allow list enforcement so that teams can
-    // enable auto-mode routing without maintaining per-model allow lists.
-    if (!requestedAutoModel) {
-      const modelRestrictionError = checkOrganizationModelRestrictions({
-        modelId: originalModelIdLowerCased,
-        settings,
-      });
-      if (modelRestrictionError) return modelRestrictionError;
-    }
+    const modelRestrictionError = checkOrganizationModelRestrictions({
+      modelId: requestedAutoModel ? KILO_AUTO_MODEL_ID : originalModelIdLowerCased,
+      settings,
+    });
+    if (modelRestrictionError) return modelRestrictionError;
 
     if (settings) {
       // Set up provider object with both allow list and data collection
@@ -396,6 +381,28 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
   }
 
   const clonedReponse = response.clone(); // reading from body is side-effectful
+
+  // Await abuse classification (with timeout) to get request_id for cost tracking correlation
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const classifyResult = await Promise.race([
+    classifyPromise.finally(() => timeoutId && clearTimeout(timeoutId)),
+    new Promise<null>(resolve => {
+      timeoutId = setTimeout(() => resolve(null), 2000);
+    }),
+  ]);
+  if (classifyResult) {
+    console.log('Abuse classification result:', {
+      verdict: classifyResult.verdict,
+      risk_score: classifyResult.risk_score,
+      signals: classifyResult.signals,
+      identity_key: classifyResult.context.identity_key,
+      kilo_user_id: user.id,
+      requested_model: originalModelIdLowerCased,
+      rps: classifyResult.context.requests_per_second,
+      request_id: classifyResult.request_id,
+    });
+    usageContext.abuse_request_id = classifyResult.request_id;
+  }
 
   accountForMicrodollarUsage(clonedReponse, usageContext, openrouterRequestSpan);
 
