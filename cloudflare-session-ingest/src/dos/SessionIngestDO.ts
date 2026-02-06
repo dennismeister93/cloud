@@ -96,7 +96,10 @@ export class SessionIngestDO extends DurableObject<Env> {
     this.initialized = true;
   }
 
-  async ingest(payload: IngestBatch): Promise<{
+  async ingest(
+    payload: IngestBatch,
+    clientIp: string | null
+  ): Promise<{
     changes: Changes;
     hasSessionClose: boolean;
   }> {
@@ -158,6 +161,11 @@ export class SessionIngestDO extends DurableObject<Env> {
     // close/alarm re-computes and re-emits.
     if (!hasSessionClose) {
       this.sql.exec(`DELETE FROM ingest_meta WHERE key = 'metricsEmitted'`);
+    }
+
+    // Store the client IP so metrics emission (including alarm fallback) can forward it
+    if (clientIp) {
+      writeIngestMetaIfChanged(this.sql, { key: 'clientIp', incomingValue: clientIp });
     }
 
     // Reset the inactivity alarm on every ingest
@@ -230,11 +238,20 @@ export class SessionIngestDO extends DurableObject<Env> {
 
     const metrics = computeSessionMetrics(rows, closeReason);
 
+    // Read stored client IP for PostHog geo-IP forwarding
+    const ipRows = this.sql
+      .exec<{
+        value: string | null;
+      }>(`SELECT value FROM ingest_meta WHERE key = 'clientIp' LIMIT 1`)
+      .toArray();
+    const clientIp = ipRows[0]?.value ?? null;
+
     await this.env.O11Y.ingestSessionMetrics({
       kiloUserId,
       sessionId,
       organizationId: metrics.organizationId,
       platform: metrics.platform,
+      ipAddress: clientIp,
       sessionDurationMs: metrics.sessionDurationMs,
       timeToFirstResponseMs: metrics.timeToFirstResponseMs,
       totalTurns: metrics.totalTurns,

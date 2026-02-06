@@ -10,6 +10,7 @@ type O11YSessionMetricsParams = {
   organizationId?: string;
   sessionId: string;
   platform: string;
+  ipAddress?: string | null;
   sessionDurationMs: number;
   timeToFirstResponseMs?: number;
   totalTurns: number;
