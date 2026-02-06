@@ -220,7 +220,6 @@ function processPart(acc: Accumulator, raw: unknown) {
       if (state.status === 'error') {
         acc.toolErrorsByType[tool] = (acc.toolErrorsByType[tool] ?? 0) + 1;
         acc.totalErrors++;
-        acc.errorsByType['tool_error'] = (acc.errorsByType['tool_error'] ?? 0) + 1;
       }
 
       if (state.status === 'completed' || state.status === 'error') {

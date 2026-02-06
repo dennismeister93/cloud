@@ -165,11 +165,12 @@ export class SessionIngestDO extends DurableObject<Env> {
       }
     }
 
-    // If new session data arrives after metrics were already emitted (e.g. a
-    // user resumes a session the next day), clear the flag so the next
-    // alarm re-computes and re-emits.
+    // Non-close data means the session is (re)opening. Clear prior close
+    // state so metrics can be re-computed and re-emitted on the next alarm.
+    // The POST_CLOSE_DRAIN_MS window handles late stragglers that arrive
+    // before the drain alarm fires.
     if (!closeReason) {
-      this.sql.exec(`DELETE FROM ingest_meta WHERE key = 'metricsEmitted'`);
+      this.sql.exec(`DELETE FROM ingest_meta WHERE key IN ('metricsEmitted', 'closeReason')`);
     }
 
     if (closeReason) {
@@ -248,26 +249,7 @@ export class SessionIngestDO extends DurableObject<Env> {
 
     const metrics = computeSessionMetrics(rows, closeReason);
 
-    await this.env.O11Y.ingestSessionMetrics({
-      kiloUserId,
-      sessionId,
-      organizationId: metrics.organizationId,
-      platform: metrics.platform,
-      sessionDurationMs: metrics.sessionDurationMs,
-      timeToFirstResponseMs: metrics.timeToFirstResponseMs,
-      totalTurns: metrics.totalTurns,
-      totalSteps: metrics.totalSteps,
-      toolCallsByType: metrics.toolCallsByType,
-      toolErrorsByType: metrics.toolErrorsByType,
-      totalErrors: metrics.totalErrors,
-      errorsByType: metrics.errorsByType,
-      stuckToolCallCount: metrics.stuckToolCallCount,
-      totalTokens: metrics.totalTokens,
-      totalCost: metrics.totalCost,
-      compactionCount: metrics.compactionCount,
-      autoCompactionCount: metrics.autoCompactionCount,
-      terminationReason: metrics.terminationReason,
-    });
+    await this.env.O11Y.ingestSessionMetrics({ kiloUserId, sessionId, ...metrics });
 
     // Mark metrics as emitted to prevent duplicates
     this.sql.exec(
@@ -305,11 +287,7 @@ export class SessionIngestDO extends DurableObject<Env> {
 
     const closeReason = (meta['closeReason'] ?? 'abandoned') as TerminationReason;
 
-    try {
-      await this.emitSessionMetrics(kiloUserId, sessionId, closeReason);
-    } catch (err) {
-      console.error('Failed to emit session metrics from alarm', { error: err });
-    }
+    await this.emitSessionMetrics(kiloUserId, sessionId, closeReason);
   }
 
   async clear(): Promise<void> {

@@ -3,6 +3,8 @@
  * method types.  `wrangler types` only sees `Fetcher` for service bindings;
  * the actual RPC shape comes from the o11y worker's WorkerEntrypoint and is
  * declared here so the generated file can be freely regenerated.
+ *
+ * Keep in sync with: cloudflare-o11y/src/session-metrics-schema.ts
  */
 
 type O11YSessionMetricsParams = {
