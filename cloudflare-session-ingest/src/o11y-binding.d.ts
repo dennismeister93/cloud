@@ -30,7 +30,7 @@ type O11YSessionMetricsParams = {
   totalCost: number;
   compactionCount: number;
   autoCompactionCount: number;
-  terminationReason: 'completed' | 'error' | 'abandoned' | 'length' | 'unknown';
+  terminationReason: 'completed' | 'error' | 'interrupted' | 'abandoned' | 'unknown';
 };
 
 type O11YBinding = Fetcher & {

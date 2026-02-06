@@ -4,7 +4,7 @@ const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000;
 
 export { INACTIVITY_TIMEOUT_MS };
 
-export type TerminationReason = 'completed' | 'error' | 'abandoned' | 'length' | 'unknown';
+export type TerminationReason = 'completed' | 'error' | 'interrupted' | 'abandoned' | 'unknown';
 
 export type SessionMetrics = {
   sessionDurationMs: number;
@@ -73,7 +73,6 @@ const AssistantMessageSchema = z.object({
   }),
   cost: z.number(),
   error: AssistantErrorSchema.optional(),
-  finish: z.string().optional(),
 });
 
 const ToolStateWithStatusSchema = z.object({
@@ -102,15 +101,11 @@ const PartTypeSchema = z.object({
 
 // -- Core aggregation --
 
-type Timestamped<T> = { value: T; time: number };
-
 type Accumulator = {
   sessionCreatedAt: number | undefined;
   sessionUpdatedAt: number | undefined;
   firstUserMessageCreatedAt: number | undefined;
   firstAssistantMessageCreatedAt: number | undefined;
-  lastAssistantError: Timestamped<string> | undefined;
-  lastAssistantFinish: Timestamped<string> | undefined;
   totalTurns: number;
   totalSteps: number;
   toolCallsByType: Record<string, number>;
@@ -138,8 +133,6 @@ function freshAccumulator(): Accumulator {
     sessionUpdatedAt: undefined,
     firstUserMessageCreatedAt: undefined,
     firstAssistantMessageCreatedAt: undefined,
-    lastAssistantError: undefined,
-    lastAssistantFinish: undefined,
     totalTurns: 0,
     totalSteps: 0,
     toolCallsByType: {},
@@ -204,15 +197,6 @@ function processMessage(acc: Accumulator, raw: unknown) {
       if (msg.error) {
         acc.totalErrors++;
         acc.errorsByType[msg.error.name] = (acc.errorsByType[msg.error.name] ?? 0) + 1;
-        if (acc.lastAssistantError === undefined || t > acc.lastAssistantError.time) {
-          acc.lastAssistantError = { value: msg.error.name, time: t };
-        }
-      }
-
-      if (msg.finish) {
-        if (acc.lastAssistantFinish === undefined || t > acc.lastAssistantFinish.time) {
-          acc.lastAssistantFinish = { value: msg.finish, time: t };
-        }
       }
     }
   }
@@ -263,7 +247,7 @@ function processPart(acc: Accumulator, raw: unknown) {
  */
 export function computeSessionMetrics(
   items: Array<{ item_type: string; item_data: string }>,
-  closeReason: 'completed' | 'error' | 'user_closed' | 'abandoned' | null
+  closeReason: TerminationReason
 ): SessionMetrics {
   const acc = freshAccumulator();
 
@@ -326,29 +310,8 @@ export function computeSessionMetrics(
     totalCost: acc.totalCost,
     compactionCount: acc.compactionCount,
     autoCompactionCount: acc.autoCompactionCount,
-    terminationReason: deriveTerminationReason(
-      closeReason,
-      acc.lastAssistantError?.value,
-      acc.lastAssistantFinish?.value
-    ),
+    terminationReason: closeReason,
     platform: acc.platform,
     organizationId: acc.organizationId,
   };
-}
-
-function deriveTerminationReason(
-  closeReason: 'completed' | 'error' | 'user_closed' | 'abandoned' | null,
-  lastAssistantError: string | undefined,
-  lastAssistantFinish: string | undefined
-): TerminationReason {
-  if (closeReason === 'completed') return 'completed';
-  if (closeReason === 'error') return 'error';
-  if (closeReason === 'user_closed') return 'completed';
-  if (closeReason === 'abandoned') return 'abandoned';
-
-  if (lastAssistantError) return 'error';
-  if (lastAssistantFinish === 'length') return 'length';
-  if (lastAssistantFinish === 'stop') return 'completed';
-
-  return 'unknown';
 }

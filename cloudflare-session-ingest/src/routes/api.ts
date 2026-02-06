@@ -283,7 +283,8 @@ api.post('/session/:sessionId/ingest', zodJsonValidator(ingestSessionSchema), as
   // If a session_close item was received, emit session metrics to o11y (non-blocking).
   if (hasSessionClose) {
     const closeItem = ingestBody.data.find(item => item.type === 'session_close');
-    const closeReason = closeItem?.type === 'session_close' ? closeItem.data.reason : null;
+    if (!closeItem || closeItem.type !== 'session_close') throw new Error('unreachable');
+    const closeReason = closeItem.data.reason;
 
     c.executionCtx.waitUntil(
       withDORetry(

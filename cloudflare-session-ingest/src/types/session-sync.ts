@@ -38,7 +38,7 @@ export const SessionItemSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('session_close'),
     data: z.object({
-      reason: z.enum(['completed', 'error', 'user_closed']),
+      reason: z.enum(['completed', 'error', 'interrupted']),
       timestamp: z.number(),
     }),
   }),

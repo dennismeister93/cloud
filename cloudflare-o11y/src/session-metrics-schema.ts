@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const TerminationReasons = ['completed', 'error', 'abandoned', 'length', 'unknown'] as const;
+export const TerminationReasons = ['completed', 'error', 'interrupted', 'abandoned', 'unknown'] as const;
 
 export const SessionMetricsParamsSchema = z.object({
 	kiloUserId: z.string().min(1),

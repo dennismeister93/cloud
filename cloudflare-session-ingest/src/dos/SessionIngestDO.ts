@@ -11,7 +11,11 @@ import {
   extractNormalizedPlatformFromItem,
   extractNormalizedTitleFromItem,
 } from './session-ingest-extractors';
-import { computeSessionMetrics, INACTIVITY_TIMEOUT_MS } from './session-metrics';
+import {
+  computeSessionMetrics,
+  INACTIVITY_TIMEOUT_MS,
+  type TerminationReason,
+} from './session-metrics';
 
 function writeIngestMetaIfChanged(
   sql: SqlStorage,
@@ -217,7 +221,7 @@ export class SessionIngestDO extends DurableObject<Env> {
   async emitSessionMetrics(
     kiloUserId: string,
     sessionId: string,
-    closeReason: 'completed' | 'error' | 'user_closed' | 'abandoned' | null
+    closeReason: TerminationReason
   ): Promise<boolean> {
     this.initSchema();
 

@@ -7,13 +7,13 @@ function makeItem(item_type: string, data: Record<string, unknown>) {
 
 describe('computeSessionMetrics', () => {
   it('returns zeroed metrics for empty items', () => {
-    const result = computeSessionMetrics([], null);
+    const result = computeSessionMetrics([], 'completed');
     expect(result.totalTurns).toBe(0);
     expect(result.totalSteps).toBe(0);
     expect(result.totalErrors).toBe(0);
     expect(result.totalCost).toBe(0);
     expect(result.compactionCount).toBe(0);
-    expect(result.terminationReason).toBe('unknown');
+    expect(result.terminationReason).toBe('completed');
     expect(result.platform).toBe('unknown');
   });
 
@@ -23,7 +23,7 @@ describe('computeSessionMetrics', () => {
       makeItem('message', { role: 'user', time: { created: 2000 } }),
       makeItem('message', { role: 'assistant', time: { created: 1500 } }),
     ];
-    const result = computeSessionMetrics(items, null);
+    const result = computeSessionMetrics(items, 'completed');
     expect(result.totalTurns).toBe(2);
   });
 
@@ -33,7 +33,7 @@ describe('computeSessionMetrics', () => {
       makeItem('part', { type: 'step-finish', tokens: { input: 200, output: 100 } }),
       makeItem('part', { type: 'text', text: 'hello' }),
     ];
-    const result = computeSessionMetrics(items, null);
+    const result = computeSessionMetrics(items, 'completed');
     expect(result.totalSteps).toBe(2);
   });
 
@@ -55,7 +55,7 @@ describe('computeSessionMetrics', () => {
         state: { status: 'completed', input: { path: '/a' } },
       }),
     ];
-    const result = computeSessionMetrics(items, null);
+    const result = computeSessionMetrics(items, 'completed');
     expect(result.toolCallsByType).toEqual({ read_file: 2, write_file: 1 });
   });
 
@@ -72,7 +72,7 @@ describe('computeSessionMetrics', () => {
         state: { status: 'completed', input: {} },
       }),
     ];
-    const result = computeSessionMetrics(items, null);
+    const result = computeSessionMetrics(items, 'completed');
     expect(result.toolErrorsByType).toEqual({ write_file: 1 });
     expect(result.totalErrors).toBe(1);
   });
@@ -100,7 +100,7 @@ describe('computeSessionMetrics', () => {
         state: { status: 'completed', input: { path: '/b' } },
       }),
     ];
-    const result = computeSessionMetrics(items, null);
+    const result = computeSessionMetrics(items, 'completed');
     // 3 calls with same input = 3 stuck; the unique /b call is not counted
     expect(result.stuckToolCallCount).toBe(3);
   });
@@ -118,7 +118,7 @@ describe('computeSessionMetrics', () => {
         state: { status: 'completed', input: { path: '/a' } },
       }),
     ];
-    const result = computeSessionMetrics(items, null);
+    const result = computeSessionMetrics(items, 'completed');
     expect(result.stuckToolCallCount).toBe(0);
   });
 
@@ -137,7 +137,7 @@ describe('computeSessionMetrics', () => {
         cost: 0.1,
       }),
     ];
-    const result = computeSessionMetrics(items, null);
+    const result = computeSessionMetrics(items, 'completed');
     expect(result.totalTokens).toEqual({
       input: 300,
       output: 150,
@@ -154,14 +154,14 @@ describe('computeSessionMetrics', () => {
       makeItem('part', { type: 'compaction', auto: false }),
       makeItem('part', { type: 'compaction', auto: true }),
     ];
-    const result = computeSessionMetrics(items, null);
+    const result = computeSessionMetrics(items, 'completed');
     expect(result.compactionCount).toBe(3);
     expect(result.autoCompactionCount).toBe(2);
   });
 
   it('computes session duration from session timestamps', () => {
     const items = [makeItem('session', { time: { created: 1000, updated: 61000 } })];
-    const result = computeSessionMetrics(items, null);
+    const result = computeSessionMetrics(items, 'completed');
     expect(result.sessionDurationMs).toBe(60000);
   });
 
@@ -175,13 +175,13 @@ describe('computeSessionMetrics', () => {
         cost: 0,
       }),
     ];
-    const result = computeSessionMetrics(items, null);
+    const result = computeSessionMetrics(items, 'completed');
     expect(result.timeToFirstResponseMs).toBe(1500);
   });
 
   it('extracts platform from kilo_meta', () => {
     const items = [makeItem('kilo_meta', { platform: 'vscode', orgId: 'org-123' })];
-    const result = computeSessionMetrics(items, null);
+    const result = computeSessionMetrics(items, 'completed');
     expect(result.platform).toBe('vscode');
     expect(result.organizationId).toBe('org-123');
   });
@@ -203,7 +203,7 @@ describe('computeSessionMetrics', () => {
         error: { name: 'MessageOutputLengthError', data: {} },
       }),
     ];
-    const result = computeSessionMetrics(items, null);
+    const result = computeSessionMetrics(items, 'completed');
     expect(result.totalErrors).toBe(2);
     expect(result.errorsByType).toEqual({ APIError: 1, MessageOutputLengthError: 1 });
   });
@@ -214,9 +214,9 @@ describe('computeSessionMetrics', () => {
       expect(result.terminationReason).toBe('completed');
     });
 
-    it('maps user_closed to completed', () => {
-      const result = computeSessionMetrics([], 'user_closed');
-      expect(result.terminationReason).toBe('completed');
+    it('uses interrupted close reason', () => {
+      const result = computeSessionMetrics([], 'interrupted');
+      expect(result.terminationReason).toBe('interrupted');
     });
 
     it('uses error close reason', () => {
@@ -229,46 +229,9 @@ describe('computeSessionMetrics', () => {
       expect(result.terminationReason).toBe('abandoned');
     });
 
-    it('infers error from last assistant message error', () => {
-      const items = [
-        makeItem('message', {
-          role: 'assistant',
-          time: { created: 1000 },
-          tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
-          cost: 0,
-          error: { name: 'APIError', data: { message: 'fail' } },
-        }),
-      ];
-      const result = computeSessionMetrics(items, null);
-      expect(result.terminationReason).toBe('error');
-    });
-
-    it('infers length from last assistant finish=length', () => {
-      const items = [
-        makeItem('message', {
-          role: 'assistant',
-          time: { created: 1000 },
-          tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
-          cost: 0,
-          finish: 'length',
-        }),
-      ];
-      const result = computeSessionMetrics(items, null);
-      expect(result.terminationReason).toBe('length');
-    });
-
-    it('infers completed from last assistant finish=stop', () => {
-      const items = [
-        makeItem('message', {
-          role: 'assistant',
-          time: { created: 1000 },
-          tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
-          cost: 0,
-          finish: 'stop',
-        }),
-      ];
-      const result = computeSessionMetrics(items, null);
-      expect(result.terminationReason).toBe('completed');
+    it('uses unknown close reason', () => {
+      const result = computeSessionMetrics([], 'unknown');
+      expect(result.terminationReason).toBe('unknown');
     });
   });
 
@@ -278,7 +241,7 @@ describe('computeSessionMetrics', () => {
       { item_type: 'message', item_data: 'null' },
       makeItem('message', { role: 'user', time: { created: 1000 } }),
     ];
-    const result = computeSessionMetrics(items, null);
+    const result = computeSessionMetrics(items, 'completed');
     expect(result.totalTurns).toBe(1);
   });
 });
