@@ -197,6 +197,9 @@ export type PersistenceEnv = {
    */
   AGENT_ENV_VARS_PRIVATE_KEY?: string;
 
+  /** URL for session ingest service, injected into sandbox session env vars */
+  KILO_SESSION_INGEST_URL?: string;
+
   R2_ENDPOINT?: string;
   R2_ATTACHMENTS_READONLY_ACCESS_KEY_ID?: string;
   R2_ATTACHMENTS_READONLY_SECRET_ACCESS_KEY?: string;

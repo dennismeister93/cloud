@@ -521,6 +521,10 @@ export class SessionService {
       envVars.KILOCODE_BACKEND_BASE_URL = env.KILOCODE_BACKEND_BASE_URL;
     }
 
+    if (env.KILO_SESSION_INGEST_URL) {
+      envVars.KILO_SESSION_INGEST_URL = env.KILO_SESSION_INGEST_URL;
+    }
+
     return envVars;
   }
 

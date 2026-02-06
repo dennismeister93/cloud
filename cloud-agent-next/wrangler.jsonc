@@ -42,6 +42,7 @@
     "PENDING_START_TIMEOUT_MS": "300000",
     "R2_ATTACHMENTS_BUCKET": "cloud-agent-attachments",
     "WS_ALLOWED_ORIGINS": "https://app.kilo.ai",
+    "KILO_SESSION_INGEST_URL": "https://ingest.kilosessions.ai",
   },
   "placement": { "mode": "smart" },
   /**
@@ -221,6 +222,7 @@
         "PENDING_START_TIMEOUT_MS": "300000",
         "R2_ATTACHMENTS_BUCKET": "cloud-agent-attachments-dev",
         "WS_ALLOWED_ORIGINS": "http://localhost:3000,http://192.168.200.174:3000",
+        "KILO_SESSION_INGEST_URL": "http://localhost:8787",
       },
       "services": [
         {
@@ -240,7 +242,7 @@
           "image": "./Dockerfile.dev",
           "instance_type": "standard-4",
           "image_vars": {
-            "KILOCODE_CLI_VERSION": "next",
+            "KILOCODE_CLI_VERSION": "latest",
           },
           "max_instances": 10,
           "rollout_active_grace_period": 60,
