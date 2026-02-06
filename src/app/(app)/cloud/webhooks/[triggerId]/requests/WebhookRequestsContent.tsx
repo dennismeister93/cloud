@@ -574,7 +574,8 @@ export function WebhookRequestsContent({
                               <p className="mb-2 text-sm font-medium">Body</p>
                               {isAdminView ? (
                                 <p className="text-muted-foreground text-xs">
-                                  Payload body length: {request.body.length} bytes
+                                  Payload body length:{' '}
+                                  {new TextEncoder().encode(request.body).byteLength} bytes
                                 </p>
                               ) : (
                                 <pre className="bg-muted max-h-64 overflow-auto rounded-md p-3 text-xs">
