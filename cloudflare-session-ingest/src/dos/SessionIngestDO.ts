@@ -166,8 +166,11 @@ export class SessionIngestDO extends DurableObject<Env> {
     // Store (or clear) the client IP so metrics emission forwards the latest value
     writeIngestMetaIfChanged(this.sql, { key: 'clientIp', incomingValue: clientIp });
 
-    // Reset the inactivity alarm on every ingest
-    await this.ctx.storage.setAlarm(Date.now() + INACTIVITY_TIMEOUT_MS);
+    // Reset the inactivity alarm unless the session just closed (metrics will
+    // be emitted by the API handler and the alarm deleted there).
+    if (!hasSessionClose) {
+      await this.ctx.storage.setAlarm(Date.now() + INACTIVITY_TIMEOUT_MS);
+    }
 
     return {
       changes,
@@ -301,6 +304,7 @@ export class SessionIngestDO extends DurableObject<Env> {
   }
 
   async clear(): Promise<void> {
+    await this.ctx.storage.deleteAlarm();
     await this.ctx.storage.deleteAll();
 
     this.initialized = false;
