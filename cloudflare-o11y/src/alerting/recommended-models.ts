@@ -25,9 +25,13 @@ export async function getRecommendedModels(env: RecommendedModelsEnv): Promise<S
 	// 1. Try KV cache
 	const cached = await env.O11Y_ALERT_STATE.get(KV_KEY);
 	if (cached) {
-		const parsed = recommendedModelsSchema.safeParse(JSON.parse(cached));
-		if (parsed.success) {
-			return new Set(parsed.data);
+		try {
+			const parsed = recommendedModelsSchema.safeParse(JSON.parse(cached));
+			if (parsed.success) {
+				return new Set(parsed.data);
+			}
+		} catch {
+			// Corrupted cache — fall through to network fetch.
 		}
 	}
 
