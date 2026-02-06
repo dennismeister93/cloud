@@ -53,13 +53,7 @@ const UserMessageSchema = z.object({
 });
 
 const AssistantErrorSchema = z.object({
-  name: z.enum([
-    'ProviderAuthError',
-    'UnknownError',
-    'MessageOutputLengthError',
-    'MessageAbortedError',
-    'APIError',
-  ]),
+  name: z.string().min(1),
 });
 
 const AssistantMessageSchema = z.object({

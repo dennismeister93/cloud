@@ -163,10 +163,8 @@ export class SessionIngestDO extends DurableObject<Env> {
       this.sql.exec(`DELETE FROM ingest_meta WHERE key = 'metricsEmitted'`);
     }
 
-    // Store the client IP so metrics emission (including alarm fallback) can forward it
-    if (clientIp) {
-      writeIngestMetaIfChanged(this.sql, { key: 'clientIp', incomingValue: clientIp });
-    }
+    // Store (or clear) the client IP so metrics emission forwards the latest value
+    writeIngestMetaIfChanged(this.sql, { key: 'clientIp', incomingValue: clientIp });
 
     // Reset the inactivity alarm on every ingest
     await this.ctx.storage.setAlarm(Date.now() + INACTIVITY_TIMEOUT_MS);
@@ -273,6 +271,8 @@ export class SessionIngestDO extends DurableObject<Env> {
       `INSERT INTO ingest_meta (key, value) VALUES ('metricsEmitted', 'true')
        ON CONFLICT(key) DO UPDATE SET value = 'true'`
     );
+
+    await this.ctx.storage.deleteAlarm();
 
     return true;
   }

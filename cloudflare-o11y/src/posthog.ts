@@ -3,10 +3,10 @@ import type { ApiMetricsParamsSchema } from './index';
 
 type ApiMetricsParams = z.infer<typeof ApiMetricsParamsSchema>;
 
-export function captureApiMetrics(params: ApiMetricsParams, clientName: string, env: Env): Promise<Response> {
+export async function captureApiMetrics(params: ApiMetricsParams, clientName: string, env: Env): Promise<void> {
 	const { clientSecret: _, ipAddress, ...properties } = params;
 
-	return fetch(`${env.POSTHOG_HOST}/capture/`, {
+	const response = await fetch(`${env.POSTHOG_HOST}/capture/`, {
 		method: 'POST',
 		headers: { 'content-type': 'application/json' },
 		body: JSON.stringify({
@@ -23,4 +23,11 @@ export function captureApiMetrics(params: ApiMetricsParams, clientName: string, 
 			},
 		}),
 	});
+
+	if (!response.ok) {
+		console.error('PostHog API metrics capture failed', {
+			status: response.status,
+			body: await response.text().catch(() => '<unreadable>'),
+		});
+	}
 }

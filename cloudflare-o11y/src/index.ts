@@ -29,7 +29,7 @@ export const ApiMetricsParamsSchema = z.object({
 	ttfbMs: z.number().int().nonnegative(),
 	completeRequestMs: z.number().int().nonnegative(),
 	statusCode: z.number().int().min(100).max(599),
-	ipAddress: z.union([z.string().ipv4(), z.string().ipv6()]).optional(),
+	ipAddress: z.union([z.ipv4(), z.ipv6()]).optional(),
 	tokens: z
 		.object({
 			inputTokens: z.number().int().nonnegative().optional(),
