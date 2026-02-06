@@ -206,7 +206,6 @@ api.post('/session/:sessionId/ingest', zodJsonValidator(ingestSessionSchema), as
   const clientIp = c.req.header('cf-connecting-ip') ?? null;
 
   const mergedChanges = new Map<string, string | null>();
-  let hasSessionClose = false;
   for (const chunk of split.chunks) {
     const ingestResult = await withDORetry(
       () => getSessionIngestDO(c.env, { kiloUserId, sessionId: parsed.data }),
@@ -216,9 +215,6 @@ api.post('/session/:sessionId/ingest', zodJsonValidator(ingestSessionSchema), as
 
     for (const change of ingestResult.changes) {
       mergedChanges.set(change.name, change.value);
-    }
-    if (ingestResult.hasSessionClose) {
-      hasSessionClose = true;
     }
   }
 
@@ -278,26 +274,6 @@ api.post('/session/:sessionId/ingest', zodJsonValidator(ingestSessionSchema), as
       .where('kilo_user_id', '=', kiloUserId)
       .where('parent_session_id', 'is distinct from', parentIdValue)
       .execute();
-  }
-
-  // If a session_close item was received, emit session metrics to o11y (non-blocking).
-  if (hasSessionClose) {
-    const closeItem = ingestBody.data.find(item => item.type === 'session_close');
-    if (!closeItem || closeItem.type !== 'session_close') throw new Error('unreachable');
-    const closeReason = closeItem.data.reason;
-
-    c.executionCtx.waitUntil(
-      withDORetry(
-        () => getSessionIngestDO(c.env, { kiloUserId, sessionId: parsed.data }),
-        stub => stub.emitSessionMetrics(kiloUserId, parsed.data, closeReason),
-        'SessionIngestDO.emitSessionMetrics'
-      ).catch(err => {
-        console.error('Failed to emit session metrics on close', {
-          sessionId: parsed.data,
-          error: err,
-        });
-      })
-    );
   }
 
   return c.json({ success: true }, 200);

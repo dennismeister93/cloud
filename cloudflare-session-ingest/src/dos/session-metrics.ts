@@ -1,8 +1,10 @@
 import { z } from 'zod';
 
 const INACTIVITY_TIMEOUT_MS = 5 * 60 * 1000;
+// Short delay after session_close to let late-arriving data drain before emitting metrics.
+const POST_CLOSE_DRAIN_MS = 10 * 1000;
 
-export { INACTIVITY_TIMEOUT_MS };
+export { INACTIVITY_TIMEOUT_MS, POST_CLOSE_DRAIN_MS };
 
 export type TerminationReason = 'completed' | 'error' | 'interrupted' | 'abandoned' | 'unknown';
 

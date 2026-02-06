@@ -14,6 +14,7 @@ import {
 import {
   computeSessionMetrics,
   INACTIVITY_TIMEOUT_MS,
+  POST_CLOSE_DRAIN_MS,
   type TerminationReason,
 } from './session-metrics';
 
@@ -107,7 +108,6 @@ export class SessionIngestDO extends DurableObject<Env> {
     sessionId: string
   ): Promise<{
     changes: Changes;
-    hasSessionClose: boolean;
   }> {
     this.initSchema();
 
@@ -122,7 +122,7 @@ export class SessionIngestDO extends DurableObject<Env> {
       orgId: undefined,
     };
 
-    let hasSessionClose = false;
+    let closeReason: string | undefined;
 
     for (const item of payload) {
       const { item_id, item_type } = getItemIdentity(item);
@@ -150,7 +150,7 @@ export class SessionIngestDO extends DurableObject<Env> {
       }
 
       if (item.type === 'session_close') {
-        hasSessionClose = true;
+        closeReason = item.data.reason;
       }
     }
 
@@ -168,23 +168,26 @@ export class SessionIngestDO extends DurableObject<Env> {
 
     // If new session data arrives after metrics were already emitted (e.g. a
     // user resumes a session the next day), clear the flag so the next
-    // close/alarm re-computes and re-emits.
-    if (!hasSessionClose) {
+    // alarm re-computes and re-emits.
+    if (!closeReason) {
       this.sql.exec(`DELETE FROM ingest_meta WHERE key = 'metricsEmitted'`);
     }
 
     // Store (or clear) the client IP so metrics emission forwards the latest value
     writeIngestMetaIfChanged(this.sql, { key: 'clientIp', incomingValue: clientIp });
 
-    // Reset the inactivity alarm unless the session just closed (metrics will
-    // be emitted by the API handler and the alarm deleted there).
-    if (!hasSessionClose) {
+    if (closeReason) {
+      // Persist the close reason so alarm() can read it after hibernation.
+      writeIngestMetaIfChanged(this.sql, { key: 'closeReason', incomingValue: closeReason });
+      // Short drain delay to capture any late-arriving data before emitting metrics.
+      await this.ctx.storage.setAlarm(Date.now() + POST_CLOSE_DRAIN_MS);
+    } else {
+      // Reset the inactivity alarm; if it fires, metrics emit with 'abandoned'.
       await this.ctx.storage.setAlarm(Date.now() + INACTIVITY_TIMEOUT_MS);
     }
 
     return {
       changes,
-      hasSessionClose,
     };
   }
 
@@ -218,7 +221,7 @@ export class SessionIngestDO extends DurableObject<Env> {
    * Compute and emit session metrics to the o11y worker.
    * Returns true if metrics were emitted, false if already emitted.
    */
-  async emitSessionMetrics(
+  private async emitSessionMetrics(
     kiloUserId: string,
     sessionId: string,
     closeReason: TerminationReason
@@ -291,8 +294,9 @@ export class SessionIngestDO extends DurableObject<Env> {
   }
 
   /**
-   * Alarm fires after INACTIVITY_TIMEOUT_MS of no ingest activity.
-   * Emit metrics with 'abandoned' reason as fallback.
+   * Alarm fires either after POST_CLOSE_DRAIN_MS (session closed) or
+   * INACTIVITY_TIMEOUT_MS (no activity). Reads the close reason from
+   * ingest_meta if present, otherwise falls back to 'abandoned'.
    */
   async alarm(): Promise<void> {
     this.initSchema();
@@ -301,7 +305,9 @@ export class SessionIngestDO extends DurableObject<Env> {
       .exec<{
         key: string;
         value: string | null;
-      }>(`SELECT key, value FROM ingest_meta WHERE key IN ('kiloUserId', 'sessionId')`)
+      }>(
+        `SELECT key, value FROM ingest_meta WHERE key IN ('kiloUserId', 'sessionId', 'closeReason')`
+      )
       .toArray();
 
     const meta = Object.fromEntries(metaRows.map(r => [r.key, r.value]));
@@ -310,8 +316,10 @@ export class SessionIngestDO extends DurableObject<Env> {
 
     if (!kiloUserId || !sessionId) return;
 
+    const closeReason = (meta['closeReason'] ?? 'abandoned') as TerminationReason;
+
     try {
-      await this.emitSessionMetrics(kiloUserId, sessionId, 'abandoned');
+      await this.emitSessionMetrics(kiloUserId, sessionId, closeReason);
     } catch (err) {
       console.error('Failed to emit session metrics from alarm', { error: err });
     }
