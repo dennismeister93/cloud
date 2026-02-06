@@ -11,6 +11,7 @@ import {
   extractNormalizedPlatformFromItem,
   extractNormalizedTitleFromItem,
 } from './session-ingest-extractors';
+import { computeSessionMetrics, INACTIVITY_TIMEOUT_MS } from './session-metrics';
 
 function writeIngestMetaIfChanged(
   sql: SqlStorage,
@@ -97,6 +98,7 @@ export class SessionIngestDO extends DurableObject<Env> {
 
   async ingest(payload: IngestBatch): Promise<{
     changes: Changes;
+    hasSessionClose: boolean;
   }> {
     this.initSchema();
 
@@ -106,6 +108,8 @@ export class SessionIngestDO extends DurableObject<Env> {
       platform: undefined,
       orgId: undefined,
     };
+
+    let hasSessionClose = false;
 
     for (const item of payload) {
       const { item_id, item_type } = getItemIdentity(item);
@@ -131,6 +135,10 @@ export class SessionIngestDO extends DurableObject<Env> {
           incomingByKey[extractor.key] = maybeValue;
         }
       }
+
+      if (item.type === 'session_close') {
+        hasSessionClose = true;
+      }
     }
 
     const changes: Changes = [];
@@ -145,8 +153,19 @@ export class SessionIngestDO extends DurableObject<Env> {
       }
     }
 
+    // If new session data arrives after metrics were already emitted (e.g. a
+    // user resumes a session the next day), clear the flag so the next
+    // close/alarm re-computes and re-emits.
+    if (!hasSessionClose) {
+      this.sql.exec(`DELETE FROM ingest_meta WHERE key = 'metricsEmitted'`);
+    }
+
+    // Reset the inactivity alarm on every ingest
+    await this.ctx.storage.setAlarm(Date.now() + INACTIVITY_TIMEOUT_MS);
+
     return {
       changes,
+      hasSessionClose,
     };
   }
 
@@ -174,6 +193,94 @@ export class SessionIngestDO extends DurableObject<Env> {
 
     const snapshot = buildSharedSessionSnapshot(items);
     return JSON.stringify(snapshot);
+  }
+
+  /**
+   * Compute and emit session metrics to the o11y worker.
+   * Returns true if metrics were emitted, false if already emitted.
+   */
+  async emitSessionMetrics(
+    kiloUserId: string,
+    sessionId: string,
+    closeReason: 'completed' | 'error' | 'user_closed' | 'abandoned' | null
+  ): Promise<boolean> {
+    this.initSchema();
+
+    // Check if metrics have already been emitted
+    const emittedRows = this.sql
+      .exec<{
+        value: string | null;
+      }>(`SELECT value FROM ingest_meta WHERE key = 'metricsEmitted' LIMIT 1`)
+      .toArray();
+    if (emittedRows[0]?.value === 'true') {
+      return false;
+    }
+
+    const rows = this.sql
+      .exec<{
+        item_type: string;
+        item_data: string;
+      }>('SELECT item_type, item_data FROM ingest_items')
+      .toArray();
+
+    // Skip emission if the session has no meaningful data
+    if (rows.length === 0) {
+      return false;
+    }
+
+    const metrics = computeSessionMetrics(rows, closeReason);
+
+    await this.env.O11Y.ingestSessionMetrics({
+      kiloUserId,
+      sessionId,
+      organizationId: metrics.organizationId,
+      platform: metrics.platform,
+      sessionDurationMs: metrics.sessionDurationMs,
+      timeToFirstResponseMs: metrics.timeToFirstResponseMs,
+      totalTurns: metrics.totalTurns,
+      totalSteps: metrics.totalSteps,
+      toolCallsByType: metrics.toolCallsByType,
+      toolErrorsByType: metrics.toolErrorsByType,
+      totalErrors: metrics.totalErrors,
+      errorsByType: metrics.errorsByType,
+      stuckToolCallCount: metrics.stuckToolCallCount,
+      totalTokens: metrics.totalTokens,
+      totalCost: metrics.totalCost,
+      compactionCount: metrics.compactionCount,
+      autoCompactionCount: metrics.autoCompactionCount,
+      terminationReason: metrics.terminationReason,
+    });
+
+    // Mark metrics as emitted to prevent duplicates
+    this.sql.exec(
+      `INSERT INTO ingest_meta (key, value) VALUES ('metricsEmitted', 'true')
+       ON CONFLICT(key) DO UPDATE SET value = 'true'`
+    );
+
+    return true;
+  }
+
+  /**
+   * Alarm fires after INACTIVITY_TIMEOUT_MS of no ingest activity.
+   * Emit metrics with 'abandoned' reason as fallback.
+   */
+  async alarm(): Promise<void> {
+    // The alarm fires for abandoned sessions. Extract the user/session IDs from the DO name.
+    const doName = this.ctx.id.name;
+    if (!doName) return;
+
+    const slashIdx = doName.indexOf('/');
+    if (slashIdx < 0) return;
+
+    const kiloUserId = doName.slice(0, slashIdx);
+    const sessionId = doName.slice(slashIdx + 1);
+    if (!kiloUserId || !sessionId) return;
+
+    try {
+      await this.emitSessionMetrics(kiloUserId, sessionId, 'abandoned');
+    } catch (err) {
+      console.error('Failed to emit session metrics from alarm', { error: err });
+    }
   }
 
   async clear(): Promise<void> {

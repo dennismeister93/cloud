@@ -35,6 +35,13 @@ export const SessionItemSchema = z.discriminatedUnion('type', [
     type: z.literal('model'),
     data: z.array(z.looseObject({})),
   }),
+  z.object({
+    type: z.literal('session_close'),
+    data: z.object({
+      reason: z.enum(['completed', 'error', 'user_closed']),
+      timestamp: z.number(),
+    }),
+  }),
 ]);
 
 export const SessionSyncInputSchema = z.object({
