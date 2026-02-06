@@ -16,6 +16,12 @@
 	 * https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
 	 */
 	"placement": { "mode": "smart" },
+	"routes": [
+		{
+			"pattern": "o11y.kiloapps.io",
+			"custom_domain": true,
+		},
+	],
 	/**
 	 * Cron Triggers — run alert evaluation every minute
 	 * https://developers.cloudflare.com/workers/configuration/cron-triggers/
