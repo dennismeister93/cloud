@@ -44,7 +44,6 @@ type SecurityAgentAnalysisStartedEvent = BaseSecurityAgentEvent & {
   findingId: string;
   model: string;
   forceSandbox: boolean;
-  triageOnly: boolean;
 };
 
 type SecurityAgentAnalysisCompletedEvent = BaseSecurityAgentEvent & {

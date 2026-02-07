@@ -18,7 +18,10 @@ import type { SecurityFindingAnalysis, SecurityReviewOwner } from '../core/types
 import type { User, SecurityFinding } from '@/db/schema';
 import type { StreamEvent, SystemKilocodeEvent } from '@/components/cloud-agent/types';
 import { captureException } from '@sentry/nextjs';
-import { trackSecurityAgentAnalysisCompleted } from '../posthog-tracking';
+import {
+  trackSecurityAgentAnalysisStarted,
+  trackSecurityAgentAnalysisCompleted,
+} from '../posthog-tracking';
 import { db } from '@/lib/drizzle';
 import { cliSessions } from '@/db/schema';
 import { eq } from 'drizzle-orm';
@@ -531,6 +534,15 @@ export async function startSecurityAnalysis(params: {
     // Tier 1: Quick Triage (always runs)
     // =========================================================================
     console.log('[Security Analysis] Starting Tier 1 triage:', { findingId, model });
+
+    trackSecurityAgentAnalysisStarted({
+      distinctId: user.id,
+      userId: user.id,
+      organizationId,
+      findingId,
+      model,
+      forceSandbox,
+    });
 
     const triage = await triageSecurityFinding(finding, authToken, model, organizationId);
 

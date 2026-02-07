@@ -57,7 +57,6 @@ import {
   trackSecurityAgentEnabled,
   trackSecurityAgentConfigSaved,
   trackSecurityAgentSync,
-  trackSecurityAgentAnalysisStarted,
   trackSecurityAgentFindingDismissed,
 } from '@/lib/security-agent/posthog-tracking';
 
@@ -680,15 +679,6 @@ export const securityAgentRouter = createTRPCRouter({
         message: result.error || 'Failed to start analysis',
       });
     }
-
-    trackSecurityAgentAnalysisStarted({
-      distinctId: ctx.user.id,
-      userId: ctx.user.id,
-      findingId: input.findingId,
-      model,
-      forceSandbox: input.forceSandbox ?? false,
-      triageOnly: result.triageOnly ?? false,
-    });
 
     return { success: true, triageOnly: result.triageOnly };
   }),
