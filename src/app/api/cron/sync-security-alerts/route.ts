@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(summary);
   } catch (error) {
-    logError('Error syncing security alerts', error);
+    logError('Error syncing security alerts', { error });
     captureException(error, {
       tags: { endpoint: 'cron/sync-security-alerts' },
       extra: {
