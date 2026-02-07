@@ -361,6 +361,7 @@ export async function extractSandboxAnalysis(options: {
 
         const choice = result.data.choices?.[0];
         if (!choice) {
+          logError('No choice in response', { correlationId, findingId: finding.id });
           span.setAttribute('security_agent.is_fallback', true);
           return createFallbackExtraction(rawMarkdown, 'No response from LLM');
         }
@@ -369,11 +370,13 @@ export async function extractSandboxAnalysis(options: {
         const toolCall = message.tool_calls?.[0];
 
         if (!toolCall || toolCall.type !== 'function') {
+          logError('No tool call in response', { correlationId, findingId: finding.id });
           span.setAttribute('security_agent.is_fallback', true);
           return createFallbackExtraction(rawMarkdown, 'LLM did not call the extraction tool');
         }
 
         if (toolCall.function.name !== 'submit_analysis_extraction') {
+          logError('Unexpected tool call', { correlationId, findingId: finding.id, tool: toolCall.function.name });
           span.setAttribute('security_agent.is_fallback', true);
           return createFallbackExtraction(
             rawMarkdown,
@@ -386,6 +389,13 @@ export async function extractSandboxAnalysis(options: {
           span.setAttribute('security_agent.is_fallback', true);
           return createFallbackExtraction(rawMarkdown, 'Failed to parse extraction result');
         }
+
+        log('Extraction complete', {
+          correlationId,
+          findingId: finding.id,
+          isExploitable: parsed.isExploitable,
+          usageLocationsCount: parsed.usageLocations.length,
+        });
 
         span.setAttribute('security_agent.status', 'success');
         span.setAttribute('security_agent.is_exploitable', String(parsed.isExploitable));

@@ -315,6 +315,7 @@ export async function triageSecurityFinding(options: {
 
         const choice = result.data.choices?.[0];
         if (!choice) {
+          logError('No choice in response', { correlationId, findingId: finding.id });
           span.setAttribute('security_agent.is_fallback', true);
           return createFallbackTriage('No response from LLM');
         }
@@ -323,11 +324,13 @@ export async function triageSecurityFinding(options: {
         const toolCall = message.tool_calls?.[0];
 
         if (!toolCall || toolCall.type !== 'function') {
+          logError('No tool call in response', { correlationId, findingId: finding.id });
           span.setAttribute('security_agent.is_fallback', true);
           return createFallbackTriage('LLM did not call the triage tool');
         }
 
         if (toolCall.function.name !== 'submit_triage_result') {
+          logError('Unexpected tool call', { correlationId, findingId: finding.id, tool: toolCall.function.name });
           span.setAttribute('security_agent.is_fallback', true);
           return createFallbackTriage(`Unexpected tool: ${toolCall.function.name}`);
         }
@@ -342,6 +345,14 @@ export async function triageSecurityFinding(options: {
         span.setAttribute('security_agent.suggested_action', parsed.suggestedAction);
         span.setAttribute('security_agent.confidence', parsed.confidence);
         span.setAttribute('security_agent.is_fallback', false);
+
+        log('Triage complete', {
+          correlationId,
+          findingId: finding.id,
+          suggestedAction: parsed.suggestedAction,
+          confidence: parsed.confidence,
+          needsSandboxAnalysis: parsed.needsSandboxAnalysis,
+        });
 
         return parsed;
       }
