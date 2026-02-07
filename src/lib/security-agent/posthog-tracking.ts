@@ -5,6 +5,7 @@
  * Events are designed to capture comprehensive context for analytics and debugging.
  */
 
+import 'server-only';
 import PostHogClient from '@/lib/posthog';
 import { captureException } from '@sentry/nextjs';
 
