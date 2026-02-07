@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { captureException } from '@sentry/nextjs';
 import { cleanupStaleAnalyses } from '@/lib/security-agent/db/security-analysis';
 import { sentryLogger } from '@/lib/utils.server';
 import { CRON_SECRET } from '@/lib/config.server';
@@ -11,6 +12,7 @@ const BETTERSTACK_HEARTBEAT_URL = process.env.SECURITY_CLEANUP_BETTERSTACK_HEART
 
 const log = sentryLogger('security-agent:cron-cleanup', 'info');
 const warn = sentryLogger('security-agent:cron-cleanup', 'warning');
+const cronWarn = sentryLogger('cron', 'warning');
 
 /** Threshold for alerting on abnormally high stale analysis counts */
 const STALE_ANOMALY_THRESHOLD = 10;
@@ -34,36 +36,56 @@ export async function GET(request: Request) {
   // Vercel sends: Authorization: Bearer <CRON_SECRET>
   const expectedAuth = `Bearer ${CRON_SECRET}`;
   if (authHeader !== expectedAuth) {
-    warn(
+    cronWarn(
       'SECURITY: Invalid CRON job authorization attempt: ' +
         (authHeader ? 'Invalid authorization header' : 'Missing authorization header')
     );
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Execute cleanup - mark analyses running for more than 30 minutes as failed
-  const cleanedCount = await cleanupStaleAnalyses(30);
+  try {
+    // Execute cleanup - mark analyses running for more than 30 minutes as failed
+    const cleanedCount = await cleanupStaleAnalyses(30);
 
-  if (cleanedCount > 0) {
-    log(`Cleaned up ${cleanedCount} stale security analyses`);
-  }
+    if (cleanedCount > 0) {
+      log(`Cleaned up ${cleanedCount} stale security analyses`);
+    }
 
-  // Alert if abnormally high number of stale analyses indicates a systemic issue
-  if (cleanedCount > STALE_ANOMALY_THRESHOLD) {
-    warn(
-      `Abnormally high stale analysis count: ${cleanedCount} (threshold: ${STALE_ANOMALY_THRESHOLD}). This may indicate a systemic problem with analysis completion.`,
-      { cleanedCount, threshold: STALE_ANOMALY_THRESHOLD }
+    // Alert if abnormally high number of stale analyses indicates a systemic issue
+    if (cleanedCount > STALE_ANOMALY_THRESHOLD) {
+      warn(
+        `Abnormally high stale analysis count: ${cleanedCount} (threshold: ${STALE_ANOMALY_THRESHOLD}). This may indicate a systemic problem with analysis completion.`,
+        { cleanedCount, threshold: STALE_ANOMALY_THRESHOLD }
+      );
+    }
+
+    // Send heartbeat to BetterStack on success
+    if (BETTERSTACK_HEARTBEAT_URL) {
+      await fetch(BETTERSTACK_HEARTBEAT_URL).catch(() => {});
+    }
+
+    return NextResponse.json({
+      success: true,
+      cleanedCount,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    captureException(error, {
+      tags: { endpoint: 'cron/cleanup-stale-analyses' },
+    });
+
+    // Send failure heartbeat to BetterStack
+    if (BETTERSTACK_HEARTBEAT_URL) {
+      await fetch(`${BETTERSTACK_HEARTBEAT_URL}/fail`).catch(() => {});
+    }
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Failed to cleanup stale analyses',
+        message: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 500 }
     );
   }
-
-  // Send heartbeat to BetterStack on success
-  if (BETTERSTACK_HEARTBEAT_URL) {
-    await fetch(BETTERSTACK_HEARTBEAT_URL).catch(() => {});
-  }
-
-  return NextResponse.json({
-    success: true,
-    cleanedCount,
-    timestamp: new Date().toISOString(),
-  });
 }

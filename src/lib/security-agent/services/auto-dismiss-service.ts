@@ -67,20 +67,16 @@ type AutoDismissSource = 'triage' | 'sandbox';
  * 1. If sandboxAnalysis exists and isExploitable === false -> dismiss (no confidence threshold)
  * 2. If triage.suggestedAction === 'dismiss' -> dismiss (with confidence threshold)
  *
- * @param findingId - The ID of the finding to potentially dismiss
- * @param analysis - The full analysis result (triage + optional sandbox)
- * @param owner - The security review owner (org or user)
- * @param userId - The user performing the action (for audit/permissions)
- * @param correlationId - Correlation ID for tracing across the analysis pipeline
  * @returns Object with dismissed status and source
  */
-export async function maybeAutoDismissAnalysis(
-  findingId: string,
-  analysis: SecurityFindingAnalysis,
-  owner: SecurityReviewOwner,
-  userId: string,
-  correlationId: string = ''
-): Promise<{ dismissed: boolean; source?: AutoDismissSource }> {
+export async function maybeAutoDismissAnalysis(options: {
+  findingId: string;
+  analysis: SecurityFindingAnalysis;
+  owner: SecurityReviewOwner;
+  userId: string;
+  correlationId?: string;
+}): Promise<{ dismissed: boolean; source?: AutoDismissSource }> {
+  const { findingId, analysis, owner, userId, correlationId = '' } = options;
   const ownerConverted = toOwner(owner, userId);
   const config = await getSecurityAgentConfig(ownerConverted);
 

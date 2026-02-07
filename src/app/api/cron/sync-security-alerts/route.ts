@@ -8,7 +8,7 @@ import { sentryLogger } from '@/lib/utils.server';
 const BETTERSTACK_HEARTBEAT_URL = process.env.SECURITY_SYNC_BETTERSTACK_HEARTBEAT_URL;
 
 const log = sentryLogger('security-agent:cron-sync', 'info');
-const warn = sentryLogger('security-agent:cron-sync', 'warning');
+const cronWarn = sentryLogger('cron', 'warning');
 const logError = sentryLogger('security-agent:cron-sync', 'error');
 
 /**
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization');
     if (!CRON_SECRET || authHeader !== `Bearer ${CRON_SECRET}`) {
-      warn(
+      cronWarn(
         'SECURITY: Invalid CRON job authorization attempt: ' +
           (authHeader ? 'Invalid authorization header' : 'Missing authorization header')
       );

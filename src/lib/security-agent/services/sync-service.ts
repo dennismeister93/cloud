@@ -300,7 +300,7 @@ export async function runFullSync(): Promise<{
   configsProcessed: number;
 }> {
   log('Starting full security alerts sync...');
-  const startTime = Date.now();
+  const startTime = performance.now();
 
   const configs = await getEnabledSecurityReviewConfigs();
   log(`Found ${configs.length} enabled configurations`);
@@ -322,7 +322,7 @@ export async function runFullSync(): Promise<{
     }
   }
 
-  const duration = Date.now() - startTime;
+  const duration = Math.round(performance.now() - startTime);
   log(
     `Full sync completed in ${duration}ms: ${totalSynced} alerts synced, ${totalErrors} errors, ${configs.length} configs processed`
   );

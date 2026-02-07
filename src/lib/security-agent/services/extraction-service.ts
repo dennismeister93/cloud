@@ -224,24 +224,25 @@ function createFallbackExtraction(
 /**
  * Extract structured analysis fields from raw markdown output.
  * Uses direct LLM call with function calling to parse the unstructured analysis.
- *
- * @param finding - The security finding being analyzed
- * @param rawMarkdown - Raw markdown output from sandbox analysis
- * @param authToken - Auth token for the LLM proxy
- * @param model - Model to use for extraction (default: anthropic/claude-sonnet-4)
- * @param correlationId - Correlation ID for tracing across the analysis pipeline
- * @param userId - User ID for metrics tracking
- * @param organizationId - Optional organization ID for usage tracking
  */
-export async function extractSandboxAnalysis(
-  finding: SecurityFinding,
-  rawMarkdown: string,
-  authToken: string,
-  model: string = 'anthropic/claude-sonnet-4',
-  correlationId: string = '',
-  userId: string = '',
-  organizationId?: string
-): Promise<SecurityFindingSandboxAnalysis> {
+export async function extractSandboxAnalysis(options: {
+  finding: SecurityFinding;
+  rawMarkdown: string;
+  authToken: string;
+  model?: string;
+  correlationId?: string;
+  userId?: string;
+  organizationId?: string;
+}): Promise<SecurityFindingSandboxAnalysis> {
+  const {
+    finding,
+    rawMarkdown,
+    authToken,
+    model = 'anthropic/claude-sonnet-4',
+    correlationId = '',
+    userId = '',
+    organizationId,
+  } = options;
   log('Starting extraction', { correlationId, findingId: finding.id });
 
   const messages: ChatMessage[] = [
@@ -313,14 +314,22 @@ export async function extractSandboxAnalysis(
           return createFallbackExtraction(rawMarkdown, `API error: ${result.status}`);
         }
 
-        // Extract and emit token usage metrics
+        // Set token usage on span
         const usage = result.data.usage;
-        if (usage && userId) {
+        if (usage) {
           span.setAttribute('security_agent.input_tokens', usage.prompt_tokens);
           span.setAttribute('security_agent.output_tokens', usage.completion_tokens);
+        }
+
+        // Emit API metrics (only if o11y client secret is configured)
+        if (usage && userId && O11Y_KILO_GATEWAY_CLIENT_SECRET) {
+          const responseToolCalls = result.data.choices?.[0]?.message?.tool_calls ?? [];
+          const toolsUsed = responseToolCalls
+            .filter(tc => tc.type === 'function')
+            .map(tc => `function:${tc.function.name}`);
 
           emitApiMetrics({
-            clientSecret: O11Y_KILO_GATEWAY_CLIENT_SECRET ?? '',
+            clientSecret: O11Y_KILO_GATEWAY_CLIENT_SECRET,
             kiloUserId: userId,
             organizationId,
             isAnonymous: false,
@@ -331,7 +340,7 @@ export async function extractSandboxAnalysis(
             requestedModel: model,
             resolvedModel: model,
             toolsAvailable: ['function:submit_analysis_extraction'],
-            toolsUsed: ['function:submit_analysis_extraction'],
+            toolsUsed,
             ttfbMs: durationMs,
             completeRequestMs: durationMs,
             statusCode: 200,
