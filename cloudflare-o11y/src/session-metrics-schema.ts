@@ -35,7 +35,7 @@ export const SessionMetricsParamsSchema = z.object({
 
 	terminationReason: z.enum(TerminationReasons),
 
-	ingestVersion: z.number().int().nonnegative(),
+	ingestVersion: z.number().int().nonnegative().default(0),
 });
 
 export type SessionMetricsParams = z.infer<typeof SessionMetricsParamsSchema>;
