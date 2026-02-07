@@ -251,6 +251,20 @@ describe('session metrics RPC', () => {
 		expect(call.doubles[1]).toBe(-1);
 	});
 
+	it('defaults ingestVersion to 0 when omitted', async () => {
+		const aeSpy = makeWriteDataPointSpy();
+		const env = makeTestEnv({ O11Y_SESSION_METRICS: aeSpy as unknown as AnalyticsEngineDataset });
+		const ctx = createExecutionContext();
+		const instance = new Worker(ctx, env);
+
+		const params = makeValidSessionMetrics();
+		delete (params as Record<string, unknown>).ingestVersion;
+		await instance.ingestSessionMetrics(params);
+
+		const call = aeSpy.writeDataPoint.mock.calls[0][0];
+		expect(call.doubles[10]).toBe(0);
+	});
+
 	it('rejects invalid session metrics', async () => {
 		const env = makeTestEnv();
 		const ctx = createExecutionContext();
