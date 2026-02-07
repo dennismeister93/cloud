@@ -7,6 +7,14 @@ if (!CRON_SECRET) {
   throw new Error('CRON_SECRET is not configured in environment variables');
 }
 
+const BETTERSTACK_HEARTBEAT_URL = process.env.SECURITY_CLEANUP_BETTERSTACK_HEARTBEAT_URL;
+
+const log = sentryLogger('security-agent:cron-cleanup', 'info');
+const warn = sentryLogger('security-agent:cron-cleanup', 'warning');
+
+/** Threshold for alerting on abnormally high stale analysis counts */
+const STALE_ANOMALY_THRESHOLD = 10;
+
 /**
  * Cron job endpoint to cleanup stale security analyses
  *
@@ -26,10 +34,7 @@ export async function GET(request: Request) {
   // Vercel sends: Authorization: Bearer <CRON_SECRET>
   const expectedAuth = `Bearer ${CRON_SECRET}`;
   if (authHeader !== expectedAuth) {
-    sentryLogger(
-      'cron',
-      'warning'
-    )(
+    warn(
       'SECURITY: Invalid CRON job authorization attempt: ' +
         (authHeader ? 'Invalid authorization header' : 'Missing authorization header')
     );
@@ -40,7 +45,20 @@ export async function GET(request: Request) {
   const cleanedCount = await cleanupStaleAnalyses(30);
 
   if (cleanedCount > 0) {
-    sentryLogger('cron', 'info')(`Cleaned up ${cleanedCount} stale security analyses`);
+    log(`Cleaned up ${cleanedCount} stale security analyses`);
+  }
+
+  // Alert if abnormally high number of stale analyses indicates a systemic issue
+  if (cleanedCount > STALE_ANOMALY_THRESHOLD) {
+    warn(
+      `Abnormally high stale analysis count: ${cleanedCount} (threshold: ${STALE_ANOMALY_THRESHOLD}). This may indicate a systemic problem with analysis completion.`,
+      { cleanedCount, threshold: STALE_ANOMALY_THRESHOLD }
+    );
+  }
+
+  // Send heartbeat to BetterStack on success
+  if (BETTERSTACK_HEARTBEAT_URL) {
+    await fetch(BETTERSTACK_HEARTBEAT_URL).catch(() => {});
   }
 
   return NextResponse.json({
