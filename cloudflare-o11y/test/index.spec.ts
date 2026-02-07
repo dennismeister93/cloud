@@ -203,6 +203,7 @@ describe('session metrics RPC', () => {
 			compactionCount: 1,
 			autoCompactionCount: 1,
 			terminationReason: 'completed' as const,
+			ingestVersion: 1,
 		};
 	}
 
@@ -219,7 +220,7 @@ describe('session metrics RPC', () => {
 		const call = aeSpy.writeDataPoint.mock.calls[0][0];
 		expect(call.indexes).toEqual(['cli']);
 		expect(call.blobs).toEqual(['completed', 'cli', 'org_456']);
-		expect(call.doubles).toEqual([60000, 1500, 5, 12, 2, 21000, 0.15, 1, 0, 1]);
+		expect(call.doubles).toEqual([60000, 1500, 5, 12, 2, 21000, 0.15, 1, 0, 1, 1]);
 	});
 
 	it('uses empty string for missing organizationId in AE', async () => {

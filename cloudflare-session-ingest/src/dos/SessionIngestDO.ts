@@ -111,9 +111,13 @@ export class SessionIngestDO extends DurableObject<Env> {
   }> {
     this.initSchema();
 
-    // Persist identity so alarm() can recover kiloUserId/sessionId after hibernation
+    // Persist identity and version so alarm() can recover after hibernation
     writeIngestMetaIfChanged(this.sql, { key: 'kiloUserId', incomingValue: kiloUserId });
     writeIngestMetaIfChanged(this.sql, { key: 'sessionId', incomingValue: sessionId });
+    writeIngestMetaIfChanged(this.sql, {
+      key: 'ingestVersion',
+      incomingValue: String(ingestVersion),
+    });
 
     const incomingByKey: Record<IngestMetaKey, string | null | undefined> = {
       title: undefined,
@@ -224,7 +228,8 @@ export class SessionIngestDO extends DurableObject<Env> {
   private async emitSessionMetrics(
     kiloUserId: string,
     sessionId: string,
-    closeReason: TerminationReason
+    closeReason: TerminationReason,
+    ingestVersion: number
   ): Promise<boolean> {
     this.initSchema();
 
@@ -252,7 +257,7 @@ export class SessionIngestDO extends DurableObject<Env> {
 
     const metrics = computeSessionMetrics(rows, closeReason);
 
-    await this.env.O11Y.ingestSessionMetrics({ kiloUserId, sessionId, ...metrics });
+    await this.env.O11Y.ingestSessionMetrics({ kiloUserId, sessionId, ingestVersion, ...metrics });
 
     // Mark metrics as emitted to prevent duplicates
     this.sql.exec(
@@ -278,7 +283,7 @@ export class SessionIngestDO extends DurableObject<Env> {
         key: string;
         value: string | null;
       }>(
-        `SELECT key, value FROM ingest_meta WHERE key IN ('kiloUserId', 'sessionId', 'closeReason')`
+        `SELECT key, value FROM ingest_meta WHERE key IN ('kiloUserId', 'sessionId', 'closeReason', 'ingestVersion')`
       )
       .toArray();
 
@@ -289,8 +294,9 @@ export class SessionIngestDO extends DurableObject<Env> {
     if (!kiloUserId || !sessionId) return;
 
     const closeReason = (meta['closeReason'] ?? 'abandoned') as TerminationReason;
+    const ingestVersion = Number(meta['ingestVersion'] ?? '0') || 0;
 
-    await this.emitSessionMetrics(kiloUserId, sessionId, closeReason);
+    await this.emitSessionMetrics(kiloUserId, sessionId, closeReason, ingestVersion);
   }
 
   async clear(): Promise<void> {
