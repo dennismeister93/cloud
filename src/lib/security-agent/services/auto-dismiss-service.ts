@@ -96,7 +96,7 @@ export async function maybeAutoDismissAnalysis(options: {
     log('Auto-dismissed finding (sandbox)', {
       correlationId,
       findingId,
-      source: 'sandbox',
+      reasoning: analysis.sandboxAnalysis.exploitabilityReasoning.slice(0, 100),
     });
 
     return { dismissed: true, source: 'sandbox' };
@@ -124,7 +124,7 @@ export async function maybeAutoDismissAnalysis(options: {
         correlationId,
         findingId,
         confidence: triage.confidence,
-        source: 'triage',
+        reasoning: triage.needsSandboxReasoning.slice(0, 100),
       });
 
       return { dismissed: true, source: 'triage' };
