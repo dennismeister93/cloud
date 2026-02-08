@@ -17,6 +17,7 @@ import type {
   GetTokenForRepoParams,
   GetTokenForRepoResult,
 } from '../src/index.js';
+import type { GitHubAppType } from '../src/github-token-service.js';
 
 type Env = {
   GIT_TOKEN_SERVICE: Service<GitTokenRPCEntrypoint>;
@@ -39,7 +40,7 @@ export default {
       if (url.pathname === '/getToken' && request.method === 'POST') {
         const { installationId, appType } = (await request.json()) as {
           installationId: string;
-          appType?: 'standard' | 'lite';
+          appType?: GitHubAppType;
         };
         const token: string = await env.GIT_TOKEN_SERVICE.getToken(installationId, appType);
         return Response.json({ success: true, data: { token } });

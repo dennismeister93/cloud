@@ -17,9 +17,9 @@ export function createDatabaseConnection(connectionString: string): Database {
   pool.on('error', error => console.error('Pool:error - Unexpected error on idle client', error));
 
   return {
-    query: async (text, values = []) => {
+    query: async <T = unknown>(text: string, values: unknown[] = []): Promise<T[]> => {
       const result = await pool.query(text, values);
-      return result.rows ?? [];
+      return (result.rows ?? []) as T[];
     },
   };
 }
