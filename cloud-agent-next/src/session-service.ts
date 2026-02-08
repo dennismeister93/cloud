@@ -475,9 +475,8 @@ export class SessionService {
     if (kilocodeOrganizationId) {
       providerOptions.kilocodeOrganizationId = kilocodeOrganizationId;
     }
-    const openRouterBase = env.KILO_OPENROUTER_BASE ?? env.KILOCODE_BACKEND_BASE_URL;
-    if (openRouterBase) {
-      providerOptions.baseURL = openRouterBase;
+    if (env.KILO_OPENROUTER_BASE) {
+      providerOptions.baseURL = env.KILO_OPENROUTER_BASE;
     }
     const configContent: Record<string, unknown> = {
       permission: {
