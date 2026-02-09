@@ -111,6 +111,36 @@ export function createEventQueries(sql: SqlStorage) {
     },
 
     /**
+     * Lazily iterate events by filters, yielding one row at a time.
+     *
+     * Unlike findByFilters, this does not materialize all matching rows
+     * into an array. The underlying SqlStorageCursor is consumed lazily,
+     * so breaking out of iteration stops reading from SQLite.
+     * No LIMIT clause is applied -- the caller controls how far to iterate.
+     *
+     * @param filters - Query filters to apply (limit field is ignored)
+     */
+    *iterateByFilters(filters: Omit<EventQueryFilters, 'limit'>): Generator<StoredEvent> {
+      const conditions: string[] = [];
+      const args: unknown[] = [];
+
+      pushCondition(conditions, args, `${events.id}`, '>', filters.fromId);
+      pushInClause(conditions, args, `${events.execution_id}`, filters.executionIds);
+      pushInClause(conditions, args, `${events.stream_event_type}`, filters.eventTypes);
+      pushCondition(conditions, args, `${events.timestamp}`, '>=', filters.startTime);
+      pushCondition(conditions, args, `${events.timestamp}`, '<=', filters.endTime);
+
+      let query = `SELECT ${events.id}, ${events.execution_id}, ${events.session_id}, ${events.stream_event_type}, ${events.payload}, ${events.timestamp} FROM ${events}`;
+      query += buildWhereClause(conditions);
+      query += ` ORDER BY ${events.id} ASC`;
+
+      const cursor = sql.exec(query, ...args);
+      for (const row of cursor) {
+        yield EventRecord.parse(row) as StoredEvent;
+      }
+    },
+
+    /**
      * Delete events older than a given timestamp.
      *
      * @param timestamp - Unix timestamp threshold
