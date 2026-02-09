@@ -6,7 +6,7 @@ import {
 } from '@/lib/config.server';
 import { fetchWithTimeout } from '@/lib/user-deployments/fetch-utils';
 
-// Types for password protection API
+// Password protection types
 export type GetPasswordStatusResponse =
   | { protected: true; passwordSetAt: number }
   | { protected: false };
@@ -20,20 +20,28 @@ export type DeletePasswordResponse = {
   success: true;
 };
 
+// Slug mapping types
+export type GetSlugMappingResponse = { exists: true; workerName: string } | { exists: false };
+
+export type SetSlugMappingResponse = {
+  success: true;
+};
+
+export type DeleteSlugMappingResponse = {
+  success: true;
+};
+
 /**
- * Password Protection API Client
- * Handles communication with the dispatcher worker for password protection
+ * Client for the deploy dispatcher worker API.
+ * Handles password protection and slug-to-worker mappings.
  */
-class PasswordProtectionClient {
+class DispatcherClient {
   private readonly baseUrl: string;
 
   constructor() {
     this.baseUrl = USER_DEPLOYMENTS_DISPATCHER_URL;
   }
 
-  /**
-   * Get common headers for API requests
-   */
   private getHeaders(additionalHeaders?: Record<string, string>): HeadersInit {
     return {
       Authorization: `Bearer ${USER_DEPLOYMENTS_DISPATCHER_AUTH_KEY}`,
@@ -41,9 +49,8 @@ class PasswordProtectionClient {
     };
   }
 
-  /**
-   * Get the password protection status for a worker
-   */
+  // ---- Password protection ----
+
   async getPasswordStatus(workerSlug: string): Promise<GetPasswordStatusResponse> {
     const response = await fetchWithTimeout(
       `${this.baseUrl}/api/password/${workerSlug}`,
@@ -58,9 +65,6 @@ class PasswordProtectionClient {
     return (await response.json()) as GetPasswordStatusResponse;
   }
 
-  /**
-   * Set password protection for a worker
-   */
   async setPassword(workerSlug: string, password: string): Promise<SetPasswordResponse> {
     const response = await fetchWithTimeout(
       `${this.baseUrl}/api/password/${workerSlug}`,
@@ -82,9 +86,6 @@ class PasswordProtectionClient {
     return (await response.json()) as SetPasswordResponse;
   }
 
-  /**
-   * Remove password protection from a worker
-   */
   async removePassword(workerSlug: string): Promise<DeletePasswordResponse> {
     const response = await fetchWithTimeout(
       `${this.baseUrl}/api/password/${workerSlug}`,
@@ -101,7 +102,60 @@ class PasswordProtectionClient {
 
     return (await response.json()) as DeletePasswordResponse;
   }
+
+  // ---- Slug mappings ----
+
+  async getSlugMapping(slug: string): Promise<GetSlugMappingResponse> {
+    const response = await fetchWithTimeout(
+      `${this.baseUrl}/api/slug-mapping/${slug}`,
+      { headers: this.getHeaders() },
+      { maxRetries: 0 }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to get slug mapping: ${response.statusText}`);
+    }
+
+    return (await response.json()) as GetSlugMappingResponse;
+  }
+
+  async setSlugMapping(slug: string, workerName: string): Promise<SetSlugMappingResponse> {
+    const response = await fetchWithTimeout(
+      `${this.baseUrl}/api/slug-mapping/${slug}`,
+      {
+        method: 'PUT',
+        headers: this.getHeaders({
+          'Content-Type': 'application/json',
+        }),
+        body: JSON.stringify({ workerName }),
+      },
+      { maxRetries: 0 }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to set slug mapping: ${errorText}`);
+    }
+
+    return (await response.json()) as SetSlugMappingResponse;
+  }
+
+  async deleteSlugMapping(slug: string): Promise<DeleteSlugMappingResponse> {
+    const response = await fetchWithTimeout(
+      `${this.baseUrl}/api/slug-mapping/${slug}`,
+      {
+        method: 'DELETE',
+        headers: this.getHeaders(),
+      },
+      { maxRetries: 0 }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to delete slug mapping: ${response.statusText}`);
+    }
+
+    return (await response.json()) as DeleteSlugMappingResponse;
+  }
 }
 
-// Export a singleton instance
-export const passwordClient = new PasswordProtectionClient();
+export const dispatcherClient = new DispatcherClient();

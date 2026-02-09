@@ -5,7 +5,7 @@ import { organizationMemberProcedure } from './utils';
 import { branchSchema, repoNameSchema, slugSchema } from '@/lib/user-deployments/validation';
 import * as deploymentsService from '@/lib/user-deployments/deployments-service';
 import * as envVarsService from '@/lib/user-deployments/env-vars-service';
-import { passwordClient } from '@/lib/user-deployments/password-client';
+import { dispatcherClient } from '@/lib/user-deployments/dispatcher-client';
 import {
   envVarKeySchema,
   plaintextEnvVarSchema,
@@ -234,7 +234,7 @@ export const organizationDeploymentsRouter = createTRPCRouter({
         type: 'org',
         id: input.organizationId,
       });
-      return passwordClient.getPasswordStatus(deployment.deployment_slug);
+      return dispatcherClient.getPasswordStatus(deployment.deployment_slug);
     }),
 
   setPassword: organizationMemberProcedure
@@ -251,7 +251,7 @@ export const organizationDeploymentsRouter = createTRPCRouter({
         type: 'org',
         id: input.organizationId,
       });
-      return passwordClient.setPassword(deployment.deployment_slug, input.password);
+      return dispatcherClient.setPassword(deployment.deployment_slug, input.password);
     }),
 
   removePassword: organizationMemberProcedure
@@ -267,6 +267,6 @@ export const organizationDeploymentsRouter = createTRPCRouter({
         type: 'org',
         id: input.organizationId,
       });
-      return passwordClient.removePassword(deployment.deployment_slug);
+      return dispatcherClient.removePassword(deployment.deployment_slug);
     }),
 });

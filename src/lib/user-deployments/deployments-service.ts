@@ -34,7 +34,7 @@ import { isHTTPsUrl, extractRepoNameFromUrl } from './git-url-utils';
 import { encryptAuthToken, decryptAuthToken } from './auth-token-encryption';
 import { hasUserEverPaid, hasOrganizationEverPaid } from '@/lib/creditTransactions';
 import { slugSchema } from './validation';
-import { slugMappingsClient } from './slug-mappings-client';
+import { dispatcherClient } from './dispatcher-client';
 
 type PaymentCheckResult = { hasPaid: true } | { hasPaid: false };
 
@@ -884,11 +884,11 @@ export async function renameDeployment(
   // KV mapping: newSlug -> internalWorkerName
   // If this fails, the dispatcher falls back to using slug as the worker name directly,
   // which won't resolve. A retry of the rename (to the same slug) will fix it.
-  await slugMappingsClient.setSlugMapping(newSlug, internalWorkerName);
+  await dispatcherClient.setSlugMapping(newSlug, internalWorkerName);
 
   // Remove old slug from KV (only if it was a custom mapping, not the original worker name)
   if (oldSlug !== internalWorkerName) {
-    await slugMappingsClient.deleteSlugMapping(oldSlug);
+    await dispatcherClient.deleteSlugMapping(oldSlug);
   }
 
   return { success: true, deploymentUrl: newUrl };
