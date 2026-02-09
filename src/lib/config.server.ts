@@ -151,3 +151,11 @@ export const CREDIT_CATEGORIES_ENCRYPTION_KEY = getEnvVariable('CREDIT_CATEGORIE
 // Agent observability ingest service
 export const O11Y_SERVICE_URL = getEnvVariable('O11Y_SERVICE_URL') || '';
 export const O11Y_KILO_GATEWAY_CLIENT_SECRET = getEnvVariable('O11Y_KILO_GATEWAY_CLIENT_SECRET');
+
+// Security agent BetterStack heartbeat URLs
+export const SECURITY_SYNC_BETTERSTACK_HEARTBEAT_URL = getEnvVariable(
+  'SECURITY_SYNC_BETTERSTACK_HEARTBEAT_URL'
+);
+export const SECURITY_CLEANUP_BETTERSTACK_HEARTBEAT_URL = getEnvVariable(
+  'SECURITY_CLEANUP_BETTERSTACK_HEARTBEAT_URL'
+);

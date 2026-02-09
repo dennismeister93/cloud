@@ -1,11 +1,9 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { captureException } from '@sentry/nextjs';
-import { CRON_SECRET } from '@/lib/config.server';
+import { CRON_SECRET, SECURITY_SYNC_BETTERSTACK_HEARTBEAT_URL } from '@/lib/config.server';
 import { runFullSync } from '@/lib/security-agent/services/sync-service';
 import { sentryLogger } from '@/lib/utils.server';
-
-const BETTERSTACK_HEARTBEAT_URL = process.env.SECURITY_SYNC_BETTERSTACK_HEARTBEAT_URL;
 
 const log = sentryLogger('security-agent:cron-sync', 'info');
 const cronWarn = sentryLogger('cron', 'warning');
@@ -48,8 +46,8 @@ export async function GET(request: NextRequest) {
     log('Sync completed', summary);
 
     // Send heartbeat to BetterStack on success
-    if (BETTERSTACK_HEARTBEAT_URL) {
-      await fetch(BETTERSTACK_HEARTBEAT_URL, { signal: AbortSignal.timeout(5000) }).catch(() => {});
+    if (SECURITY_SYNC_BETTERSTACK_HEARTBEAT_URL) {
+      await fetch(SECURITY_SYNC_BETTERSTACK_HEARTBEAT_URL, { signal: AbortSignal.timeout(5000) }).catch(() => {});
     }
 
     return NextResponse.json(summary);
@@ -63,8 +61,8 @@ export async function GET(request: NextRequest) {
     });
 
     // Send failure heartbeat to BetterStack
-    if (BETTERSTACK_HEARTBEAT_URL) {
-      await fetch(`${BETTERSTACK_HEARTBEAT_URL}/fail`, { signal: AbortSignal.timeout(5000) }).catch(() => {});
+    if (SECURITY_SYNC_BETTERSTACK_HEARTBEAT_URL) {
+      await fetch(`${SECURITY_SYNC_BETTERSTACK_HEARTBEAT_URL}/fail`, { signal: AbortSignal.timeout(5000) }).catch(() => {});
     }
 
     return NextResponse.json(
