@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { createStreamHandler, formatStreamEvent } from './stream.js';
 import type { StoredEvent, StreamFilters } from './types.js';
 import type { SessionId, EventId } from '../types/ids.js';
-import type { EventQueries } from '../session/queries/index.js';
+import type { EventQueries, EventQueryFilters } from '../session/queries/index.js';
 
 const SESSION_ID = 'sess_test' as SessionId;
 
@@ -28,13 +28,13 @@ function makePayload(bytes: number): string {
 
 function makeFakeEventQueries(events: StoredEvent[]): EventQueries {
   return {
-    *iterateByFilters({ fromId }) {
+    *iterateByFilters({ fromId }: Omit<EventQueryFilters, 'limit'>) {
       for (const e of events) {
         if (fromId !== undefined && e.id <= fromId) continue;
         yield e;
       }
     },
-    findByFilters({ fromId, limit }) {
+    findByFilters({ fromId, limit }: EventQueryFilters) {
       let filtered = events;
       if (fromId !== undefined) {
         filtered = filtered.filter(e => e.id > fromId);
