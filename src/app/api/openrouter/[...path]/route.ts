@@ -55,6 +55,7 @@ import {
   getToolsAvailable,
   getToolsUsed,
 } from '@/lib/o11y/api-metrics.server';
+import { handleRequestLogging } from '@/lib/handleRequestLogging';
 
 const MAX_TOKENS_LIMIT = 99999999999; // GPT4.1 default is ~32k
 
@@ -207,9 +208,8 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
   const { provider, userByok } = await getProvider(
     originalModelIdLowerCased,
     requestBodyParsed,
-    isAnonymousContext(user) ? null : user,
-    organizationId,
-    taskId
+    user,
+    organizationId
   );
 
   console.debug(`Routing request to ${provider.id}`);
@@ -438,6 +438,15 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
   }
 
   accountForMicrodollarUsage(clonedReponse, usageContext, openrouterRequestSpan);
+
+  handleRequestLogging({
+    clonedResponse: response.clone(),
+    user: maybeUser,
+    organization_id: organizationId || null,
+    provider: provider.id,
+    model: originalModelIdLowerCased,
+    request: requestBodyParsed,
+  });
 
   {
     const errorResponse = await makeErrorReadable({
