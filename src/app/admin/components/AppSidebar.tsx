@@ -17,6 +17,7 @@ import {
   FileSearch,
   GitPullRequest,
   UserX,
+  Bell,
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import type { Session } from 'next-auth';
@@ -52,7 +53,7 @@ const menuItems: MenuItem[] = [
         image={session?.user?.image}
         name={session?.user?.name}
         size={24}
-        className="mx-[-4px]"
+        className="-mx-1"
       />
     ),
   },
@@ -140,6 +141,11 @@ const menuItems: MenuItem[] = [
     title: () => 'Free Model Usage',
     url: '/admin/free-model-usage',
     icon: () => <UserX />,
+  },
+  {
+    title: () => 'Alerting',
+    url: '/admin/alerting',
+    icon: () => <Bell />,
   },
 ];
 
