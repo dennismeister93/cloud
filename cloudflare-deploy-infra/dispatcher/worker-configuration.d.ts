@@ -6,8 +6,7 @@ declare namespace Cloudflare {
     mainModule: typeof import('./src/index');
   }
   interface Env {
-    DEPLOY_AUTH_KV: KVNamespace;
-    SLUG_MAPPINGS_KV: KVNamespace;
+    DEPLOY_KV: KVNamespace;
     SESSION_DURATION_SECONDS: 2592000 | 604800;
     HOSTNAME_SUFFIX: '.d.kiloapps.io' | '.d-staging.kiloapps.io';
     RATE_LIMITER: RateLimit;

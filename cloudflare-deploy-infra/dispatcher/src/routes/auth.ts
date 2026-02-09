@@ -29,7 +29,7 @@ auth.get('/', async c => {
   const returnPath = returnPathSchema.parse(c.req.query('return') ?? '/');
 
   // Check if password is set for this deployment (keyed by public slug)
-  const passwordRecord = await getPasswordRecord(c.env.DEPLOY_AUTH_KV, publicSlug);
+  const passwordRecord = await getPasswordRecord(c.env.DEPLOY_KV, publicSlug);
 
   if (!passwordRecord) {
     // No password set - redirect to target path since there's nothing to authenticate
@@ -87,7 +87,7 @@ auth.post('/', createLoginRateLimiter(), async c => {
   const { password, return: returnPath } = formResult.data;
 
   // Get password record from KV (keyed by public slug)
-  const passwordRecord = await getPasswordRecord(c.env.DEPLOY_AUTH_KV, publicSlug);
+  const passwordRecord = await getPasswordRecord(c.env.DEPLOY_KV, publicSlug);
 
   if (!passwordRecord) {
     // No password set means worker shouldn't be protected

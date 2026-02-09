@@ -58,7 +58,7 @@ subdomainApp.use('*', async (c, next) => {
   c.set('publicSlug', slug);
 
   // Check KV for slug mapping (custom slug -> internal worker name)
-  const mappedWorkerName = await c.env.SLUG_MAPPINGS_KV.get(slug);
+  const mappedWorkerName = await c.env.DEPLOY_KV.get(`slug:${slug}`);
 
   // Use mapped name if exists, otherwise use slug directly (backwards compat)
   c.set('workerName', mappedWorkerName ?? slug);
@@ -76,7 +76,7 @@ subdomainApp.all('*', async c => {
   const url = new URL(c.req.url);
 
   // Check password protection (keyed by public slug, not internal worker name)
-  const passwordRecord = await getPasswordRecord(c.env.DEPLOY_AUTH_KV, publicSlug);
+  const passwordRecord = await getPasswordRecord(c.env.DEPLOY_KV, publicSlug);
 
   if (passwordRecord) {
     const authCookie = getCookie(c, 'kilo_auth');

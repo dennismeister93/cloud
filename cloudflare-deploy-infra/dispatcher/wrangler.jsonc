@@ -10,18 +10,13 @@
   "compatibility_date": "2025-10-11",
   "compatibility_flags": ["nodejs_compat"],
   /**
-   * KV namespaces:
-   * - DEPLOY_AUTH_KV: Password protection storage (password hashes for deployed workers)
-   * - SLUG_MAPPINGS_KV: Custom slug/domain mappings (public slug -> internal worker name)
+   * Single KV namespace for all deployment data.
+   * Keys are prefixed: "password:<slug>" for auth, "slug:<slug>" for slug-to-worker mappings.
    */
   "kv_namespaces": [
     {
-      "binding": "DEPLOY_AUTH_KV",
+      "binding": "DEPLOY_KV",
       "id": "c8d39d486e4246eb8784744bf24b9909",
-    },
-    {
-      "binding": "SLUG_MAPPINGS_KV",
-      "id": "TODO_CREATE_KV_NAMESPACE", // Create with: wrangler kv:namespace create "SLUG_MAPPINGS_KV"
     },
   ],
   "ratelimits": [
@@ -70,12 +65,8 @@
       "name": "kilo-deploy-dispatcher-staging",
       "kv_namespaces": [
         {
-          "binding": "DEPLOY_AUTH_KV",
+          "binding": "DEPLOY_KV",
           "id": "c8d39d486e4246eb8784744bf24b9909",
-        },
-        {
-          "binding": "SLUG_MAPPINGS_KV",
-          "id": "TODO_CREATE_KV_NAMESPACE", // Create with: wrangler kv:namespace create "SLUG_MAPPINGS_KV"
         },
       ],
       "ratelimits": [

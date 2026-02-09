@@ -54,7 +54,7 @@ api.put('/password/:worker', async c => {
   }
 
   const record = hashPassword(result.data.password);
-  await setPasswordRecord(c.env.DEPLOY_AUTH_KV, worker, record);
+  await setPasswordRecord(c.env.DEPLOY_KV, worker, record);
 
   return c.json({
     success: true,
@@ -68,7 +68,7 @@ api.put('/password/:worker', async c => {
 api.delete('/password/:worker', async c => {
   const worker = c.req.param('worker');
 
-  await deletePasswordRecord(c.env.DEPLOY_AUTH_KV, worker);
+  await deletePasswordRecord(c.env.DEPLOY_KV, worker);
 
   return c.json({ success: true });
 });
@@ -79,7 +79,7 @@ api.delete('/password/:worker', async c => {
 api.get('/password/:worker', async c => {
   const worker = c.req.param('worker');
 
-  const record = await getPasswordRecord(c.env.DEPLOY_AUTH_KV, worker);
+  const record = await getPasswordRecord(c.env.DEPLOY_KV, worker);
 
   if (record) {
     return c.json({
@@ -125,7 +125,7 @@ api.put('/slug-mapping/:slug', async c => {
     return c.json({ error: 'Missing workerName in body' }, 400);
   }
 
-  await c.env.SLUG_MAPPINGS_KV.put(slug, result.data.workerName);
+  await c.env.DEPLOY_KV.put(`slug:${slug}`, result.data.workerName);
 
   return c.json({ success: true });
 });
@@ -136,7 +136,7 @@ api.put('/slug-mapping/:slug', async c => {
 api.delete('/slug-mapping/:slug', async c => {
   const slug = c.req.param('slug');
 
-  await c.env.SLUG_MAPPINGS_KV.delete(slug);
+  await c.env.DEPLOY_KV.delete(`slug:${slug}`);
 
   return c.json({ success: true });
 });
@@ -147,7 +147,7 @@ api.delete('/slug-mapping/:slug', async c => {
 api.get('/slug-mapping/:slug', async c => {
   const slug = c.req.param('slug');
 
-  const workerName = await c.env.SLUG_MAPPINGS_KV.get(slug);
+  const workerName = await c.env.DEPLOY_KV.get(`slug:${slug}`);
 
   if (workerName) {
     return c.json({ exists: true, workerName });
