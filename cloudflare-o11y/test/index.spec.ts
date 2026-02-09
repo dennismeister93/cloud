@@ -203,6 +203,7 @@ describe('session metrics RPC', () => {
 			compactionCount: 1,
 			autoCompactionCount: 1,
 			terminationReason: 'completed' as const,
+			model: 'anthropic/claude-sonnet-4',
 			ingestVersion: 1,
 		};
 	}
@@ -219,7 +220,7 @@ describe('session metrics RPC', () => {
 		expect(aeSpy.writeDataPoint).toHaveBeenCalledOnce();
 		const call = aeSpy.writeDataPoint.mock.calls[0][0];
 		expect(call.indexes).toEqual(['cli']);
-		expect(call.blobs).toEqual(['completed', 'cli', 'org_456']);
+		expect(call.blobs).toEqual(['completed', 'cli', 'org_456', 'user_123', 'anthropic/claude-sonnet-4']);
 		expect(call.doubles).toEqual([60000, 1500, 5, 12, 2, 21000, 0.15, 1, 0, 1, 1]);
 	});
 
@@ -263,6 +264,20 @@ describe('session metrics RPC', () => {
 
 		const call = aeSpy.writeDataPoint.mock.calls[0][0];
 		expect(call.doubles[10]).toBe(0);
+	});
+
+	it('uses empty string for missing model in AE', async () => {
+		const aeSpy = makeWriteDataPointSpy();
+		const env = makeTestEnv({ O11Y_SESSION_METRICS: aeSpy as unknown as AnalyticsEngineDataset });
+		const ctx = createExecutionContext();
+		const instance = new Worker(ctx, env);
+
+		const params = makeValidSessionMetrics();
+		delete (params as Record<string, unknown>).model;
+		await instance.ingestSessionMetrics(params);
+
+		const call = aeSpy.writeDataPoint.mock.calls[0][0];
+		expect(call.blobs[4]).toBe('');
 	});
 
 	it('rejects invalid session metrics', async () => {

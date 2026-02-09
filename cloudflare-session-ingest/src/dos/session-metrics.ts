@@ -31,6 +31,7 @@ export type SessionMetrics = {
   terminationReason: TerminationReason;
   platform: string;
   organizationId: string | undefined;
+  model: string | undefined;
 };
 
 // -- Zod schemas for the subset of CLI types we need for metrics --
@@ -64,6 +65,7 @@ const AssistantMessageSchema = z.object({
     created: z.number(),
     completed: z.number().optional(),
   }),
+  modelID: z.string().optional(),
   tokens: z.object({
     input: z.number(),
     output: z.number(),
@@ -104,6 +106,8 @@ type Accumulator = {
   sessionUpdatedAt: number | undefined;
   firstUserMessageCreatedAt: number | undefined;
   firstAssistantMessageCreatedAt: number | undefined;
+  lastAssistantCreatedAt: number | undefined;
+  lastModelId: string | undefined;
   totalTurns: number;
   totalSteps: number;
   toolCallsByType: Record<string, number>;
@@ -131,6 +135,8 @@ function freshAccumulator(): Accumulator {
     sessionUpdatedAt: undefined,
     firstUserMessageCreatedAt: undefined,
     firstAssistantMessageCreatedAt: undefined,
+    lastAssistantCreatedAt: undefined,
+    lastModelId: undefined,
     totalTurns: 0,
     totalSteps: 0,
     toolCallsByType: {},
@@ -183,6 +189,14 @@ function processMessage(acc: Accumulator, raw: unknown) {
         t < acc.firstAssistantMessageCreatedAt
       ) {
         acc.firstAssistantMessageCreatedAt = t;
+      }
+
+      if (
+        msg.modelID &&
+        (acc.lastAssistantCreatedAt === undefined || t >= acc.lastAssistantCreatedAt)
+      ) {
+        acc.lastAssistantCreatedAt = t;
+        acc.lastModelId = msg.modelID;
       }
 
       acc.totalTokens.input += msg.tokens.input;
@@ -310,5 +324,6 @@ export function computeSessionMetrics(
     terminationReason: closeReason,
     platform: acc.platform,
     organizationId: acc.organizationId,
+    model: acc.lastModelId,
   };
 }

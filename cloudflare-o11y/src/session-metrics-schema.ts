@@ -35,6 +35,8 @@ export const SessionMetricsParamsSchema = z.object({
 
 	terminationReason: z.enum(TerminationReasons),
 
+	model: z.string().min(1).optional(),
+
 	ingestVersion: z.number().int().nonnegative().default(0),
 });
 

@@ -8,6 +8,8 @@ import type { SessionMetricsParams } from './session-metrics-schema';
  *   blob1   = terminationReason
  *   blob2   = platform
  *   blob3   = organizationId (or empty string)
+ *   blob4   = kiloUserId
+ *   blob5   = model (or empty string)
  *   double1 = sessionDurationMs
  *   double2 = timeToFirstResponseMs (-1 if N/A)
  *   double3 = totalTurns
@@ -30,7 +32,7 @@ export function writeSessionMetricsDataPoint(params: SessionMetricsParams, env: 
 
 	env.O11Y_SESSION_METRICS.writeDataPoint({
 		indexes: [params.platform],
-		blobs: [params.terminationReason, params.platform, params.organizationId ?? ''],
+		blobs: [params.terminationReason, params.platform, params.organizationId ?? '', params.kiloUserId, params.model ?? ''],
 		doubles: [
 			params.sessionDurationMs,
 			params.timeToFirstResponseMs ?? -1,
