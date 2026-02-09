@@ -1268,6 +1268,7 @@ export class SessionService {
       gitUrl: metadata.gitUrl,
       gitToken: freshGitToken ?? metadata.gitToken,
       gitAuthorEnv: getGitAuthorEnv(env, metadata.githubAppType),
+      lastSeenBranch: metadata.upstreamBranch,
     });
 
     // Re-run setup commands (fresh clone, need to reinstall)

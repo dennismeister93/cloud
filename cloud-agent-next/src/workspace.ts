@@ -337,6 +337,7 @@ export type RestoreWorkspaceOptions = {
   gitUrl?: string;
   gitToken?: string;
   gitAuthorEnv?: { GITHUB_APP_SLUG?: string; GITHUB_APP_BOT_USER_ID?: string };
+  lastSeenBranch?: string;
 };
 
 export async function restoreWorkspace(
@@ -359,7 +360,8 @@ export async function restoreWorkspace(
     throw new Error('No repository source provided for workspace restore');
   }
 
-  await manageBranch(session, workspacePath, branchName, false);
+  const targetBranchName = options.lastSeenBranch ?? branchName;
+  await manageBranch(session, workspacePath, targetBranchName, false);
 }
 
 /**
