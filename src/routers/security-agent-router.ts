@@ -296,12 +296,17 @@ export const securityAgentRouter = createTRPCRouter({
       }
     }
 
+    const effectiveRepoCount =
+      selectionMode === 'all'
+        ? (integration?.repositories || []).filter(r => !!r.full_name).length
+        : selectedIds.length;
+
     trackSecurityAgentEnabled({
       distinctId: ctx.user.id,
       userId: ctx.user.id,
       isEnabled: input.isEnabled,
       repositorySelectionMode: selectionMode,
-      selectedRepoCount: selectedIds.length,
+      selectedRepoCount: effectiveRepoCount,
     });
 
     return { success: true };
