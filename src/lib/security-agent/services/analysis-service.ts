@@ -18,6 +18,10 @@ import { updateAnalysisStatus } from '../db/security-analysis';
 import type { SecurityFindingAnalysis, SecurityReviewOwner } from '../core/types';
 import type { User, SecurityFinding } from '@/db/schema';
 import type { StreamEvent, SystemKilocodeEvent } from '@/components/cloud-agent/types';
+import {
+  trackSecurityAgentAnalysisStarted,
+  trackSecurityAgentAnalysisCompleted,
+} from '../posthog-tracking';
 import { addBreadcrumb, captureException, startSpan, withScope } from '@sentry/nextjs';
 import { db } from '@/lib/drizzle';
 import { cliSessions } from '@/db/schema';
@@ -305,6 +309,23 @@ async function finalizeAnalysis(
 
   await updateAnalysisStatus(findingId, 'completed', { analysis });
 
+  const triggeredBy = existingAnalysis?.triggeredByUserId ?? userId;
+  trackSecurityAgentAnalysisCompleted({
+    distinctId: triggeredBy,
+    userId: triggeredBy,
+    organizationId,
+    findingId,
+    model,
+    triageOnly: false,
+    needsSandboxAnalysis: existingAnalysis?.triage?.needsSandboxAnalysis,
+    triageSuggestedAction: existingAnalysis?.triage?.suggestedAction,
+    triageConfidence: existingAnalysis?.triage?.confidence,
+    isExploitable: sandboxAnalysis.isExploitable,
+    durationMs: finding.analysis_started_at
+      ? Date.now() - new Date(finding.analysis_started_at).getTime()
+      : 0,
+  });
+
   // Attempt auto-dismiss after sandbox analysis if isExploitable === false
   if (sandboxAnalysis.isExploitable === false) {
     void maybeAutoDismissAnalysis({ findingId, analysis, owner, userId, correlationId }).catch(
@@ -582,6 +603,8 @@ export async function startSecurityAnalysis(params: {
   // Mark as pending
   await updateAnalysisStatus(findingId, 'pending');
 
+  const analysisStartTime = Date.now();
+
   try {
     // Generate auth token for LLM calls
     const authToken = generateApiToken(user);
@@ -590,6 +613,15 @@ export async function startSecurityAnalysis(params: {
     // Tier 1: Quick Triage (always runs)
     // =========================================================================
     log('Starting Tier 1 triage', { correlationId, findingId, model });
+
+    trackSecurityAgentAnalysisStarted({
+      distinctId: user.id,
+      userId: user.id,
+      organizationId,
+      findingId,
+      model,
+      forceSandbox,
+    });
 
     const tier1Start = performance.now();
     const triage = await triageSecurityFinding({
@@ -644,10 +676,25 @@ export async function startSecurityAnalysis(params: {
 
       await updateAnalysisStatus(findingId, 'completed', { analysis });
 
+      trackSecurityAgentAnalysisCompleted({
+        distinctId: user.id,
+        userId: user.id,
+        organizationId,
+        findingId,
+        model,
+        triageOnly: true,
+        needsSandboxAnalysis: triage.needsSandboxAnalysis,
+        triageSuggestedAction: triage.suggestedAction,
+        triageConfidence: triage.confidence,
+        durationMs: Date.now() - analysisStartTime,
+      });
+
+      // Attempt auto-dismiss if configured (off by default)
       const owner: SecurityReviewOwner = organizationId
         ? { organizationId }
         : { userId: user.id };
 
+      // Run auto-dismiss in background (don't block response)
       void maybeAutoDismissAnalysis({
         findingId,
         analysis,
@@ -656,6 +703,7 @@ export async function startSecurityAnalysis(params: {
         correlationId,
       }).catch((error: unknown) => {
         logError('Auto-dismiss error', { correlationId, findingId, error });
+
         captureException(error, {
           tags: { operation: 'maybeAutoDismissAnalysis' },
           extra: { findingId, correlationId },

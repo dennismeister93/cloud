@@ -14,6 +14,7 @@ import { db } from '@/lib/drizzle';
 import { security_findings } from '@/db/schema';
 import { eq, and, sql } from 'drizzle-orm';
 import { captureException } from '@sentry/nextjs';
+import { trackSecurityAgentAutoDismiss } from '../posthog-tracking';
 import { updateSecurityFindingStatus } from '../db/security-findings';
 import { getSecurityAgentConfig } from '../db/security-config';
 import type { Owner } from '@/lib/code-reviews/core';
@@ -104,6 +105,14 @@ export async function maybeAutoDismissAnalysis(options: {
       reasoning: analysis.sandboxAnalysis.exploitabilityReasoning.slice(0, 100),
     });
 
+    trackSecurityAgentAutoDismiss({
+      distinctId: userId,
+      userId,
+      organizationId: 'organizationId' in owner ? owner.organizationId : undefined,
+      findingId,
+      source: 'sandbox',
+    });
+
     return { dismissed: true, source: 'sandbox' };
   }
 
@@ -130,6 +139,15 @@ export async function maybeAutoDismissAnalysis(options: {
         findingId,
         confidence: triage.confidence,
         reasoning: triage.needsSandboxReasoning.slice(0, 100),
+      });
+
+      trackSecurityAgentAutoDismiss({
+        distinctId: userId,
+        userId,
+        organizationId: 'organizationId' in owner ? owner.organizationId : undefined,
+        findingId,
+        source: 'triage',
+        confidence: triage.confidence,
       });
 
       return { dismissed: true, source: 'triage' };
@@ -233,6 +251,16 @@ export async function autoDismissEligibleFindings(
   }
 
   log('Bulk auto-dismiss complete', { dismissed, skipped, errors });
+
+  trackSecurityAgentAutoDismiss({
+    distinctId: userId,
+    userId,
+    organizationId: 'organizationId' in owner ? owner.organizationId : undefined,
+    source: 'bulk',
+    dismissed,
+    skipped,
+    errors,
+  });
 
   return { dismissed, skipped, errors };
 }
