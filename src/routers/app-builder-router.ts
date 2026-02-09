@@ -8,6 +8,7 @@ import {
   sendMessageBaseSchema,
   getImageUploadUrlSchema,
   prepareLegacySessionBaseSchema,
+  migrateToGitHubSchema,
 } from '@/routers/app-builder/schemas';
 import { getBalanceForUser } from '@/lib/user.balance';
 import { MIN_BALANCE_FOR_APP_BUILDER } from '@/lib/app-builder/constants';
@@ -229,4 +230,61 @@ export const appBuilderRouter = createTRPCRouter({
 
       return { cloudAgentSessionId: result.cloudAgentSessionId };
     }),
+
+  // ============================================================================
+  // GitHub Migration
+  // ============================================================================
+
+  /**
+   * Pre-flight check for GitHub migration.
+   *
+   * User-created repository approach:
+   * Returns info needed to guide the user through creating their own repo and granting access.
+   *
+   * Returns:
+   * - hasGitHubIntegration: Whether the user has an active GitHub App installation
+   * - targetAccountName: The GitHub account name where the repo should be created
+   * - alreadyMigrated: Whether this project has already been migrated
+   * - suggestedRepoName: A sanitized repo name based on project title
+   * - newRepoUrl: URL to create new repo on GitHub (opens GitHub's new repo page)
+   * - installationSettingsUrl: URL to manage GitHub App repo access
+   * - availableRepos: List of repos accessible to the GitHub App installation
+   */
+  canMigrateToGitHub: baseProcedure.input(projectIdBaseSchema).query(async ({ ctx, input }) => {
+    const owner = { type: 'user' as const, id: ctx.user.id };
+    return appBuilderService.canMigrateToGitHub(input.projectId, owner);
+  }),
+
+  /**
+   * Migrate an App Builder project to GitHub.
+   *
+   * User-created repository approach:
+   * User creates an empty repo on GitHub, grants access, then selects it here.
+   * Kilo validates the repo is empty and pushes the project code.
+   *
+   * This is a one-way migration that:
+   * 1. Validates the target repo exists, is accessible, and is empty
+   * 2. Pushes the internal git repository to GitHub
+   * 3. Updates the deployment to point to GitHub (if exists)
+   * 4. Updates the project record with migration info
+   * 5. Deletes the internal repository
+   *
+   * Returns success with the new GitHub repo URL, or an error code:
+   * - github_app_not_installed: No GitHub App installation found
+   * - already_migrated: Project has already been migrated
+   * - repo_not_found: Specified repo doesn't exist or not accessible
+   * - repo_not_empty: Repo has commits, must be empty
+   * - push_failed: Failed to push to GitHub
+   * - internal_error: Unexpected error
+   */
+  migrateToGitHub: baseProcedure.input(migrateToGitHubSchema).mutation(async ({ ctx, input }) => {
+    const owner = { type: 'user' as const, id: ctx.user.id };
+
+    return appBuilderService.migrateProjectToGitHub({
+      projectId: input.projectId,
+      owner,
+      userId: ctx.user.id,
+      repoFullName: input.repoFullName,
+    });
+  }),
 });

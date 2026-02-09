@@ -134,6 +134,43 @@ export type DeleteSuccessResponse = z.infer<typeof DeleteSuccessResponseSchema>;
 export type DeleteErrorResponse = z.infer<typeof DeleteErrorResponseSchema>;
 
 // ============================================
+// Migrate to GitHub Endpoint Schemas
+// POST /apps/{app_id}/migrate-to-github
+// Sets GitHub source and schedules internal git repo deletion
+// ============================================
+
+export const MigrateToGithubRequestSchema = z.object({
+  /** HTTPS clone URL of the target GitHub repository */
+  remoteUrl: z.string().url(),
+  /** GitHub installation token for pushing */
+  remoteAuthToken: z.string().min(1),
+  githubRepo: z.string().regex(/^[^/]+\/[^/]+$/, 'Must be in "owner/repo" format'),
+  userId: z.string().uuid(),
+  orgId: z.string().uuid().optional(),
+});
+
+export type MigrateToGithubRequest = z.infer<typeof MigrateToGithubRequestSchema>;
+
+export const MigrateToGithubSuccessResponseSchema = z.object({
+  success: z.literal(true),
+});
+
+export const MigrateToGithubErrorResponseSchema = z.object({
+  success: z.literal(false),
+  error: z.enum(['invalid_request', 'internal_error']),
+  message: z.string(),
+});
+
+export const MigrateToGithubResponseSchema = z.discriminatedUnion('success', [
+  MigrateToGithubSuccessResponseSchema,
+  MigrateToGithubErrorResponseSchema,
+]);
+
+export type MigrateToGithubSuccessResponse = z.infer<typeof MigrateToGithubSuccessResponseSchema>;
+export type MigrateToGithubErrorResponse = z.infer<typeof MigrateToGithubErrorResponseSchema>;
+export type MigrateToGithubResponse = z.infer<typeof MigrateToGithubResponseSchema>;
+
+// ============================================
 // Common Error Response Schema
 // ============================================
 

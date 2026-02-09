@@ -482,6 +482,181 @@ function isHttpError(error: unknown): error is { status: number; message: string
 }
 
 /**
+ * Get repository details including whether it's empty.
+ * Used to validate target repo before migration.
+ *
+ * @param installationId - The GitHub App installation ID
+ * @param repoFullName - The full name of the repository (owner/repo)
+ * @param appType - The type of GitHub App to use (defaults to 'standard')
+ * @returns Repository details or null if not found/not accessible
+ */
+export async function getRepositoryDetails(
+  installationId: string,
+  repoFullName: string,
+  appType: GitHubAppType = 'standard'
+): Promise<{
+  fullName: string;
+  cloneUrl: string;
+  htmlUrl: string;
+  isEmpty: boolean;
+  isPrivate: boolean;
+} | null> {
+  const tokenData = await generateGitHubInstallationToken(installationId, appType);
+  const octokit = new Octokit({ auth: tokenData.token });
+
+  const [owner, repo] = repoFullName.split('/');
+  if (!owner || !repo) {
+    return null;
+  }
+
+  try {
+    const { data: repoData } = await octokit.repos.get({
+      owner,
+      repo,
+    });
+
+    // Check if repo is empty by trying to get commits
+    // An empty repo has no commits
+    let isEmpty = false;
+    try {
+      const { data: commits } = await octokit.repos.listCommits({
+        owner,
+        repo,
+        per_page: 1,
+      });
+      isEmpty = commits.length === 0;
+    } catch (error) {
+      // 409 Conflict means "Git Repository is empty" - this is expected for empty repos
+      if (isHttpError(error) && error.status === 409) {
+        isEmpty = true;
+      } else {
+        throw error;
+      }
+    }
+
+    logExceptInTest('[getRepositoryDetails] Got repository details', {
+      fullName: repoData.full_name,
+      isEmpty,
+      private: repoData.private,
+    });
+
+    return {
+      fullName: repoData.full_name,
+      cloneUrl: repoData.clone_url,
+      htmlUrl: repoData.html_url,
+      isEmpty,
+      isPrivate: repoData.private,
+    };
+  } catch (error) {
+    // 404 means repo doesn't exist or not accessible
+    if (isHttpError(error) && error.status === 404) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+/**
+ * Get the URL to the GitHub App installation settings page.
+ * Users may need to grant access to newly created repos here.
+ *
+ * @param installationId - The GitHub App installation ID
+ * @param appType - The type of GitHub App to use (defaults to 'standard')
+ * @returns The URL to the installation settings page
+ */
+export async function getInstallationSettingsUrl(
+  installationId: string,
+  appType: GitHubAppType = 'standard'
+): Promise<string> {
+  const credentials = getGitHubAppCredentials(appType);
+
+  if (!credentials.appId || !credentials.privateKey) {
+    throw new Error(`GitHub ${appType} App credentials not configured`);
+  }
+
+  // Create app-level authentication to get installation details
+  const auth = createAppAuth({
+    appId: credentials.appId,
+    privateKey: credentials.privateKey,
+  });
+
+  const { token } = await auth({ type: 'app' });
+  const octokit = new Octokit({ auth: token });
+
+  const { data } = await octokit.apps.getInstallation({
+    installation_id: parseInt(installationId),
+  });
+
+  // The account type determines the URL format
+  const accountLogin = (data.account as { login?: string })?.login ?? '';
+  const accountType = (data.account as { type?: string })?.type ?? 'User';
+
+  // GitHub App installation settings URL format
+  // For orgs: https://github.com/organizations/{org}/settings/installations/{id}
+  // For users: https://github.com/settings/installations/{id}
+  if (accountType === 'Organization') {
+    return `https://github.com/organizations/${accountLogin}/settings/installations/${installationId}`;
+  }
+  return `https://github.com/settings/installations/${installationId}`;
+}
+
+/**
+ * Fetches repositories accessible by a GitHub App installation with creation dates.
+ * Sorted by creation date descending (newest first).
+ * Capped at 200 repos to avoid excessive API calls for large installations.
+ *
+ * @param installationId - The GitHub App installation ID
+ * @param appType - The type of GitHub App to use (defaults to 'standard')
+ */
+export async function fetchGitHubRepositoriesWithDates(
+  installationId: string,
+  appType: GitHubAppType = 'standard'
+): Promise<
+  Array<{
+    fullName: string;
+    createdAt: string;
+    isPrivate: boolean;
+  }>
+> {
+  const tokenData = await generateGitHubInstallationToken(installationId, appType);
+  const octokit = new Octokit({ auth: tokenData.token });
+
+  const repositories: Array<{
+    fullName: string;
+    createdAt: string;
+    isPrivate: boolean;
+  }> = [];
+  let page = 1;
+  const perPage = 100;
+  const maxRepos = 200;
+
+  while (repositories.length < maxRepos) {
+    const { data } = await octokit.apps.listReposAccessibleToInstallation({
+      per_page: perPage,
+      page,
+    });
+
+    repositories.push(
+      ...data.repositories
+        .filter(repo => !repo.archived)
+        .map(repo => ({
+          fullName: repo.full_name,
+          createdAt: repo.created_at ?? new Date().toISOString(),
+          isPrivate: repo.private,
+        }))
+    );
+
+    if (data.repositories.length < perPage) break;
+    page++;
+  }
+
+  // Sort by creation date descending (newest first)
+  return repositories
+    .slice(0, maxRepos)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+/**
  * Check if user already has a fork of a repository
  * @param accountLogin - The GitHub username of the account where the fork would be created
  * @param appType - The type of GitHub App to use (defaults to 'standard')
