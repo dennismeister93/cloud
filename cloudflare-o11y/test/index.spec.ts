@@ -119,6 +119,25 @@ describe('o11y worker', () => {
 		expect(call.doubles).toEqual([45, 123, 200]);
 	});
 
+	it('defaults inferenceProvider to empty string', async () => {
+		const aeSpy = makeWriteDataPointSpy();
+		const env = makeTestEnv({ O11Y_API_METRICS: aeSpy as unknown as AnalyticsEngineDataset });
+		const { inferenceProvider: _ignored, ...body } = makeValidApiMetricsBody();
+
+		const request = new IncomingRequest('https://example.com/ingest/api-metrics', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify(body),
+		});
+
+		const response = await workerFetch(request, env, createExecutionContext());
+		expect(response.status).toBe(204);
+
+		expect(aeSpy.writeDataPoint).toHaveBeenCalledOnce();
+		const call = aeSpy.writeDataPoint.mock.calls[0][0];
+		expect(call.blobs[4]).toBe('');
+	});
+
 	it('marks errors correctly in AE data point (statusCode >= 400)', async () => {
 		const aeSpy = makeWriteDataPointSpy();
 		const env = makeTestEnv({ O11Y_API_METRICS: aeSpy as unknown as AnalyticsEngineDataset });

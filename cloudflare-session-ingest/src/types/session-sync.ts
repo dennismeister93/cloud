@@ -35,7 +35,7 @@ export const SessionItemSchema = z.discriminatedUnion('type', [
     type: z.literal('model'),
     data: z.array(
       z.looseObject({
-        id: z.string(),
+        id: z.string().trim().min(1),
       })
     ),
   }),

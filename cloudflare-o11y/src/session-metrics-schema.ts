@@ -4,7 +4,7 @@ export const TerminationReasons = ['completed', 'error', 'interrupted', 'abandon
 
 export const SessionMetricsParamsSchema = z.object({
 	kiloUserId: z.string().min(1),
-	organizationId: z.string().min(1).optional().default(''),
+	organizationId: z.string().optional().default(''),
 	sessionId: z.string().min(1),
 	platform: z.string().min(1),
 
@@ -35,7 +35,7 @@ export const SessionMetricsParamsSchema = z.object({
 
 	terminationReason: z.enum(TerminationReasons),
 
-	model: z.string().min(1).optional().default(''),
+	model: z.string().optional().default(''),
 
 	ingestVersion: z.number().int().nonnegative().default(0),
 });

@@ -270,12 +270,16 @@ export class SessionIngestDO extends DurableObject<Env> {
       .toArray()[0];
     let model: string | undefined;
     if (modelRow) {
-      const arr = JSON.parse(modelRow.item_data) as Extract<
-        SessionDataItem,
-        { type: 'model' }
-      >['data'];
-      if (arr.length > 0) {
-        model = arr[arr.length - 1].id;
+      try {
+        const arr = JSON.parse(modelRow.item_data) as Extract<
+          SessionDataItem,
+          { type: 'model' }
+        >['data'];
+        if (arr.length > 0) {
+          model = arr[arr.length - 1].id;
+        }
+      } catch {
+        // Best-effort: skip model on parse errors.
       }
     }
 
