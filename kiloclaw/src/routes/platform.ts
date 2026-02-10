@@ -14,6 +14,7 @@ import {
   DestroyRequestSchema,
 } from '../schemas/instance-config';
 import { withDORetry } from '../util/do-retry';
+import { deriveGatewayToken } from '../auth/gateway-token';
 import type { z } from 'zod';
 
 const platform = new Hono<AppEnv>();
@@ -141,7 +142,16 @@ platform.get('/status', async c => {
       stub => stub.getStatus(),
       'getStatus'
     );
-    return c.json(status);
+
+    // Derive gateway token for the Next.js dashboard so it never needs
+    // GATEWAY_TOKEN_SECRET directly. Only included when the instance has
+    // a sandboxId and the secret is configured.
+    let gatewayToken: string | undefined;
+    if (status.sandboxId && c.env.GATEWAY_TOKEN_SECRET) {
+      gatewayToken = await deriveGatewayToken(status.sandboxId, c.env.GATEWAY_TOKEN_SECRET);
+    }
+
+    return c.json({ ...status, gatewayToken });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     console.error('[platform] status failed:', message);
