@@ -142,19 +142,43 @@ platform.get('/status', async c => {
       stub => stub.getStatus(),
       'getStatus'
     );
-
-    // Derive gateway token for the Next.js dashboard so it never needs
-    // GATEWAY_TOKEN_SECRET directly. Only included when the instance has
-    // a sandboxId and the secret is configured.
-    let gatewayToken: string | undefined;
-    if (status.sandboxId && c.env.GATEWAY_TOKEN_SECRET) {
-      gatewayToken = await deriveGatewayToken(status.sandboxId, c.env.GATEWAY_TOKEN_SECRET);
-    }
-
-    return c.json({ ...status, gatewayToken });
+    return c.json(status);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     console.error('[platform] status failed:', message);
+    return c.json({ error: message }, 500);
+  }
+});
+
+// GET /api/platform/gateway-token?userId=...
+// Returns the derived gateway token for a user's sandbox. The Next.js
+// dashboard calls this so it never needs GATEWAY_TOKEN_SECRET directly.
+platform.get('/gateway-token', async c => {
+  const userId = c.req.query('userId');
+  if (!userId) {
+    return c.json({ error: 'userId query parameter is required' }, 400);
+  }
+
+  if (!c.env.GATEWAY_TOKEN_SECRET) {
+    return c.json({ error: 'GATEWAY_TOKEN_SECRET is not configured' }, 503);
+  }
+
+  try {
+    const status = await withDORetry(
+      instanceStubFactory(c.env, userId),
+      stub => stub.getStatus(),
+      'getStatus'
+    );
+
+    if (!status.sandboxId) {
+      return c.json({ error: 'Instance not provisioned' }, 404);
+    }
+
+    const gatewayToken = await deriveGatewayToken(status.sandboxId, c.env.GATEWAY_TOKEN_SECRET);
+    return c.json({ gatewayToken });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    console.error('[platform] gateway-token failed:', message);
     return c.json({ error: message }, 500);
   }
 });
