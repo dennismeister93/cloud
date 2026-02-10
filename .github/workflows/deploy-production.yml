@@ -154,7 +154,7 @@ jobs:
   check-cloud-agent-changes:
     runs-on: ubuntu-latest
     outputs:
-      changed: ${{ steps.changes.outputs.cloud-agent }}
+      changed: ${{ steps.changes.outputs['cloud-agent'] }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -230,7 +230,7 @@ jobs:
   check-git-token-service-changes:
     runs-on: ubuntu-latest
     outputs:
-      changed: ${{ steps.changes.outputs.git-token-service }}
+      changed: ${{ steps.changes.outputs['git-token-service'] }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -254,7 +254,7 @@ jobs:
   check-deployment-dispatcher-changes:
     runs-on: ubuntu-latest
     outputs:
-      changed: ${{ steps.changes.outputs.deployment-dispatcher }}
+      changed: ${{ steps.changes.outputs['deployment-dispatcher'] }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -278,7 +278,7 @@ jobs:
   check-deployment-builder-changes:
     runs-on: ubuntu-latest
     outputs:
-      changed: ${{ steps.changes.outputs.deployment-builder }}
+      changed: ${{ steps.changes.outputs['deployment-builder'] }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -302,7 +302,7 @@ jobs:
   check-app-builder-changes:
     runs-on: ubuntu-latest
     outputs:
-      changed: ${{ steps.changes.outputs.app-builder }}
+      changed: ${{ steps.changes.outputs['app-builder'] }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
