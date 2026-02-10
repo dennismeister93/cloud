@@ -23,7 +23,8 @@ kiloclaw.get('/config', async c => {
     channels: {
       telegram: !!config.channels?.telegramBotToken,
       discord: !!config.channels?.discordBotToken,
-      slack: !!config.channels?.slackBotToken || !!config.channels?.slackAppToken,
+      slackBot: !!config.channels?.slackBotToken,
+      slackApp: !!config.channels?.slackAppToken,
     },
   });
 });

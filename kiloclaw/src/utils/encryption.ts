@@ -149,12 +149,12 @@ export function mergeEnvVarsWithSecrets(
  * Channel token env var mapping.
  * Maps channel config keys to the container env var names expected by start-openclaw.sh.
  */
-const CHANNEL_ENV_MAP = {
+const CHANNEL_ENV_MAP: Record<keyof EncryptedChannelTokens, string> = {
   telegramBotToken: 'TELEGRAM_BOT_TOKEN',
   discordBotToken: 'DISCORD_BOT_TOKEN',
   slackBotToken: 'SLACK_BOT_TOKEN',
   slackAppToken: 'SLACK_APP_TOKEN',
-} as const;
+};
 
 /**
  * Decrypt encrypted channel tokens and map to container env var names.
@@ -167,10 +167,10 @@ export function decryptChannelTokens(
 ): Record<string, string> {
   const result: Record<string, string> = {};
 
-  for (const [channelKey, envVarName] of Object.entries(CHANNEL_ENV_MAP)) {
-    const envelope = channels[channelKey as keyof EncryptedChannelTokens];
+  for (const channelKey of Object.keys(CHANNEL_ENV_MAP) as (keyof EncryptedChannelTokens)[]) {
+    const envelope = channels[channelKey];
     if (envelope) {
-      result[envVarName] = decryptWithPrivateKey(envelope, privateKeyPem);
+      result[CHANNEL_ENV_MAP[channelKey]] = decryptWithPrivateKey(envelope, privateKeyPem);
     }
   }
 
