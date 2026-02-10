@@ -4,9 +4,10 @@ import type { ApiMetricsParamsSchema } from './api-metrics-routes';
 type ApiMetricsParams = z.infer<typeof ApiMetricsParamsSchema>;
 
 /**
- * Write an API metrics data point to Analytics Engine for alerting queries.
+ * Write an API metrics data point to Analytics Engine for alerting queries,
+ * and dual-write a structured event to Pipelines for R2/Snowflake export.
  *
- * Schema:
+ * AE Schema:
  *   blob1   = provider
  *   blob2   = resolvedModel
  *   blob3   = clientName
@@ -16,9 +17,31 @@ type ApiMetricsParams = z.infer<typeof ApiMetricsParamsSchema>;
  *   double2 = completeRequestMs
  *   double3 = statusCode
  */
-export function writeApiMetricsDataPoint(params: ApiMetricsParams, clientName: string, env: Env): void {
+export function writeApiMetricsDataPoint(
+	params: ApiMetricsParams,
+	clientName: string,
+	env: Env,
+	waitUntil: (p: Promise<unknown>) => void,
+): void {
+	const isError = params.statusCode >= 400;
+
 	env.O11Y_API_METRICS.writeDataPoint({
-		blobs: [params.provider, params.resolvedModel, clientName, params.statusCode >= 400 ? '1' : '0', params.inferenceProvider],
+		blobs: [params.provider, params.resolvedModel, clientName, isError ? '1' : '0', params.inferenceProvider],
 		doubles: [params.ttfbMs, params.completeRequestMs, params.statusCode],
 	});
+
+	waitUntil(
+		env.PIPELINE_API_METRICS.send([
+			{
+				provider: params.provider,
+				resolved_model: params.resolvedModel,
+				client_name: clientName,
+				is_error: isError,
+				inference_provider: params.inferenceProvider,
+				ttfb_ms: params.ttfbMs,
+				complete_request_ms: params.completeRequestMs,
+				status_code: params.statusCode,
+			},
+		]),
+	);
 }

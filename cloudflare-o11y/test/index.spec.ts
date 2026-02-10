@@ -10,6 +10,10 @@ function makeWriteDataPointSpy() {
 	return { writeDataPoint: vi.fn() };
 }
 
+function makePipelineSpy() {
+	return { send: vi.fn(async () => {}) };
+}
+
 function makeKvMock(): KVNamespace {
 	const store = new Map<string, string>();
 	return {
@@ -42,6 +46,8 @@ function makeTestEnv(overrides?: Partial<Env>): Env {
 		} as SecretsStoreSecret,
 		O11Y_API_METRICS: makeWriteDataPointSpy() as unknown as AnalyticsEngineDataset,
 		O11Y_SESSION_METRICS: makeWriteDataPointSpy() as unknown as AnalyticsEngineDataset,
+		PIPELINE_API_METRICS: makePipelineSpy() as unknown as Env['PIPELINE_API_METRICS'],
+		PIPELINE_SESSION_METRICS: makePipelineSpy() as unknown as Env['PIPELINE_SESSION_METRICS'],
 		O11Y_ALERT_STATE: makeKvMock(),
 		ALERT_CONFIG_DO: makeAlertConfigDOMock(),
 		O11Y_CF_ACCOUNT_ID: 'test-account-id' as never,
