@@ -107,12 +107,10 @@ export function registerAlertingConfigRoutes(app: Hono<{ Bindings: Env }>): void
 
 		const response = {
 			model,
-			p95Ttfb1d: baseline.p95_ttfb_1d,
+			p50Ttfb3d: baseline.p50_ttfb_3d,
 			p95Ttfb3d: baseline.p95_ttfb_3d,
-			p95Ttfb7d: baseline.p95_ttfb_7d,
-			requests1d: baseline.weighted_total_1d,
+			p99Ttfb3d: baseline.p99_ttfb_3d,
 			requests3d: baseline.weighted_total_3d,
-			requests7d: baseline.weighted_total_7d,
 		};
 
 		return c.json({ success: true, baseline: response });

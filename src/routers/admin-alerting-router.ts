@@ -62,12 +62,10 @@ const TtfbAlertingConfigResponseSchema = z.object({
 
 const TtfbBaselineSchema = z.object({
   model: z.string(),
-  p95Ttfb1d: z.number(),
+  p50Ttfb3d: z.number(),
   p95Ttfb3d: z.number(),
-  p95Ttfb7d: z.number(),
-  requests1d: z.number(),
+  p99Ttfb3d: z.number(),
   requests3d: z.number(),
-  requests7d: z.number(),
 });
 
 const TtfbBaselineResponseSchema = z.object({
