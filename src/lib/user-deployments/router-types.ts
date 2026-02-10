@@ -4,14 +4,14 @@ import type { AnyRouter } from '@trpc/server';
 import type { Deployment, DeploymentBuild } from '@/db/schema';
 import type { Event, BuildStatus } from './types';
 import type { EnvVarResponse } from './env-vars-validation';
-import type { GetPasswordStatusResponse } from './password-client';
+import type { GetPasswordStatusResponse } from './dispatcher-client';
 
 /**
  * Result type for creating a deployment - discriminated union
  */
 export type CreateDeploymentResult =
   | { success: true; deploymentId: string; deploymentSlug: string; deploymentUrl: string }
-  | { success: false; error: 'payment_required'; message: string };
+  | { success: false; error: 'payment_required' | 'invalid_slug' | 'slug_taken'; message: string };
 
 /**
  * Represents an owner that can be either a user or an organization
