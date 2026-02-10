@@ -220,9 +220,10 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
     // Mount R2 storage
     await mountR2Storage(sandbox, this.env);
 
-    // Build env vars and start gateway
-    const envVars = buildEnvVars(this.env);
-    // Merge user-provided env vars (PR5 will add encrypted secret decryption)
+    // Build env vars with per-sandbox gateway token + AUTO_APPROVE_DEVICES
+    const envVars = await buildEnvVars(this.env, this.sandboxId, this.env.GATEWAY_TOKEN_SECRET);
+    // Merge user-provided env vars. PR5 will move this into buildEnvVars
+    // alongside encrypted secret decryption and channel token mapping.
     if (this.envVars) {
       Object.assign(envVars, this.envVars);
     }

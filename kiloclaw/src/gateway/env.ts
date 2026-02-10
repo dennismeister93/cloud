@@ -1,13 +1,28 @@
 import type { KiloClawEnv } from '../types';
+import { deriveGatewayToken } from '../auth/gateway-token';
 
 /**
- * Build environment variables to pass to the OpenClaw container process
+ * Build environment variables to pass to the OpenClaw container process.
+ *
+ * Two modes:
+ * - **Shared sandbox** (no sandboxId): passes worker-level env vars including
+ *   channel tokens. Used by the catch-all proxy's ensureOpenClawGateway().
+ * - **Multi-tenant** (sandboxId + gatewayTokenSecret): derives a per-sandbox
+ *   gateway token, sets AUTO_APPROVE_DEVICES, and skips worker-level channel
+ *   tokens (those come from the user's config in PR5).
  *
  * @param env - Worker environment bindings
+ * @param sandboxId - Per-user sandbox ID (multi-tenant path)
+ * @param gatewayTokenSecret - Secret for deriving per-sandbox gateway tokens
  * @returns Environment variables record
  */
-export function buildEnvVars(env: KiloClawEnv): Record<string, string> {
+export async function buildEnvVars(
+  env: KiloClawEnv,
+  sandboxId?: string,
+  gatewayTokenSecret?: string
+): Promise<Record<string, string>> {
   const envVars: Record<string, string> = {};
+  const isMultiTenant = Boolean(sandboxId);
 
   // Cloudflare AI Gateway configuration (new native provider)
   if (env.CLOUDFLARE_AI_GATEWAY_API_KEY) {
@@ -37,14 +52,25 @@ export function buildEnvVars(env: KiloClawEnv): Record<string, string> {
   }
 
   if (env.DEV_MODE) envVars.OPENCLAW_DEV_MODE = env.DEV_MODE;
-  if (env.TELEGRAM_BOT_TOKEN) envVars.TELEGRAM_BOT_TOKEN = env.TELEGRAM_BOT_TOKEN;
-  if (env.TELEGRAM_DM_POLICY) envVars.TELEGRAM_DM_POLICY = env.TELEGRAM_DM_POLICY;
-  if (env.DISCORD_BOT_TOKEN) envVars.DISCORD_BOT_TOKEN = env.DISCORD_BOT_TOKEN;
-  if (env.DISCORD_DM_POLICY) envVars.DISCORD_DM_POLICY = env.DISCORD_DM_POLICY;
-  if (env.SLACK_BOT_TOKEN) envVars.SLACK_BOT_TOKEN = env.SLACK_BOT_TOKEN;
-  if (env.SLACK_APP_TOKEN) envVars.SLACK_APP_TOKEN = env.SLACK_APP_TOKEN;
   if (env.CF_AI_GATEWAY_MODEL) envVars.CF_AI_GATEWAY_MODEL = env.CF_AI_GATEWAY_MODEL;
   if (env.CF_ACCOUNT_ID) envVars.CF_ACCOUNT_ID = env.CF_ACCOUNT_ID;
+
+  // Channel tokens: only pass worker-level tokens in shared-sandbox mode.
+  // In multi-tenant mode, channel tokens come from the user's encrypted config (PR5).
+  if (!isMultiTenant) {
+    if (env.TELEGRAM_BOT_TOKEN) envVars.TELEGRAM_BOT_TOKEN = env.TELEGRAM_BOT_TOKEN;
+    if (env.TELEGRAM_DM_POLICY) envVars.TELEGRAM_DM_POLICY = env.TELEGRAM_DM_POLICY;
+    if (env.DISCORD_BOT_TOKEN) envVars.DISCORD_BOT_TOKEN = env.DISCORD_BOT_TOKEN;
+    if (env.DISCORD_DM_POLICY) envVars.DISCORD_DM_POLICY = env.DISCORD_DM_POLICY;
+    if (env.SLACK_BOT_TOKEN) envVars.SLACK_BOT_TOKEN = env.SLACK_BOT_TOKEN;
+    if (env.SLACK_APP_TOKEN) envVars.SLACK_APP_TOKEN = env.SLACK_APP_TOKEN;
+  }
+
+  // Reserved system vars for multi-tenant mode (cannot be overridden by user env vars)
+  if (sandboxId && gatewayTokenSecret) {
+    envVars.OPENCLAW_GATEWAY_TOKEN = await deriveGatewayToken(sandboxId, gatewayTokenSecret);
+    envVars.AUTO_APPROVE_DEVICES = 'true';
+  }
 
   return envVars;
 }

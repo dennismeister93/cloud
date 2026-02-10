@@ -85,7 +85,7 @@ export async function ensureOpenClawGateway(sandbox: Sandbox, env: KiloClawEnv):
 
   // Start a new OpenClaw gateway
   console.log('Starting new OpenClaw gateway...');
-  const envVars = buildEnvVars(env);
+  const envVars = await buildEnvVars(env);
   const command = '/usr/local/bin/start-openclaw.sh';
 
   console.log('Starting process with command:', command);
