@@ -19,10 +19,13 @@ jest.mock('@/lib/r2/cli-sessions', () => ({
 }));
 
 // Mock config.server to provide SESSION_INGEST_WORKER_URL
-jest.mock('@/lib/config.server', () => ({
-  ...jest.requireActual('@/lib/config.server'),
-  SESSION_INGEST_WORKER_URL: 'https://ingest.kilosessions.ai',
-}));
+jest.mock('@/lib/config.server', () => {
+  const actual: Record<string, unknown> = jest.requireActual('@/lib/config.server');
+  return {
+    ...actual,
+    SESSION_INGEST_WORKER_URL: 'https://ingest.kilosessions.ai',
+  };
+});
 
 // Mock Customer.io API
 global.fetch = jest.fn();
