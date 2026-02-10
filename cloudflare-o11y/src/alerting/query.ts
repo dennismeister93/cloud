@@ -93,3 +93,87 @@ export async function queryErrorRateBaseline(model: string, env: AeQueryEnv): Pr
 	const rows = await queryAnalyticsEngine<ErrorRateBaselineRow>(sql, env);
 	return rows[0] ?? null;
 }
+
+// --- TTFB queries ---
+
+export type TtfbExceedRow = {
+	provider: string;
+	model: string;
+	client_name: string;
+	weighted_slow: number;
+	weighted_total: number;
+};
+
+/**
+ * Query the fraction of successful requests where TTFB exceeds a threshold,
+ * grouped by provider, model, and client for a given time window.
+ *
+ * Only considers successful requests (blob4 = '0') so errored requests
+ * with meaningless TTFB values don't pollute the latency signal.
+ */
+export function queryTtfbExceedRates(
+	windowMinutes: number,
+	minRequests: number,
+	thresholdMs: number,
+	env: AeQueryEnv,
+): Promise<TtfbExceedRow[]> {
+	const sql = `
+		SELECT
+			blob1 AS provider,
+			blob2 AS model,
+			blob3 AS client_name,
+			SUM(_sample_interval * IF(double1 > ${thresholdMs}, 1, 0)) AS weighted_slow,
+			SUM(_sample_interval) AS weighted_total
+		FROM o11y_api_metrics
+		WHERE timestamp > NOW() - INTERVAL '${windowMinutes}' MINUTE
+			AND blob4 = '0'
+		GROUP BY provider, model, client_name
+		HAVING weighted_total >= ${minRequests}
+		FORMAT JSON
+	`;
+	return queryAnalyticsEngine<TtfbExceedRow>(sql, env);
+}
+
+export type TtfbBaselineRow = {
+	p50_ttfb_3d: number;
+	p95_ttfb_3d: number;
+	p99_ttfb_3d: number;
+	weighted_total_3d: number;
+};
+
+type TtfbBaseline3dRow = {
+	p50_ttfb: number;
+	p95_ttfb: number;
+	p99_ttfb: number;
+	weighted_total: number;
+};
+
+/**
+ * Query p50/p95/p99 TTFB baselines and request count for a model over the last 3 days.
+ * Uses quantileExactWeighted for correct results under AE sampling.
+ * Only considers successful requests (blob4 = '0').
+ */
+export async function queryTtfbBaseline(model: string, env: AeQueryEnv): Promise<TtfbBaselineRow> {
+	const modelValue = escapeSqlString(model);
+	const sql = `
+		SELECT
+			quantileExactWeighted(0.50)(double1, _sample_interval) AS p50_ttfb,
+			quantileExactWeighted(0.95)(double1, _sample_interval) AS p95_ttfb,
+			quantileExactWeighted(0.99)(double1, _sample_interval) AS p99_ttfb,
+			SUM(_sample_interval) AS weighted_total
+		FROM o11y_api_metrics
+		WHERE blob2 = '${modelValue}' AND blob4 = '0'
+			AND timestamp > NOW() - INTERVAL '3' DAY
+		FORMAT JSON
+	`;
+
+	const rows = await queryAnalyticsEngine<TtfbBaseline3dRow>(sql, env);
+	const row = rows[0];
+
+	return {
+		p50_ttfb_3d: Number(row?.p50_ttfb || 0),
+		p95_ttfb_3d: Number(row?.p95_ttfb || 0),
+		p99_ttfb_3d: Number(row?.p99_ttfb || 0),
+		weighted_total_3d: Number(row?.weighted_total || 0),
+	};
+}

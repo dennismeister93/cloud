@@ -42,3 +42,45 @@ export function useDeleteAlertingConfig() {
     })
   );
 }
+
+// --- TTFB alerting hooks ---
+
+export function useTtfbAlertingConfigs() {
+  const trpc = useTRPC();
+  return useQuery(trpc.admin.alerting.listTtfbConfigs.queryOptions());
+}
+
+export function useUpdateTtfbAlertingConfig() {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+
+  return useMutation(
+    trpc.admin.alerting.updateTtfbConfig.mutationOptions({
+      onSuccess: () => {
+        void queryClient.invalidateQueries({
+          queryKey: trpc.admin.alerting.listTtfbConfigs.queryKey(),
+        });
+      },
+    })
+  );
+}
+
+export function useTtfbAlertingBaseline() {
+  const trpc = useTRPC();
+  return useMutation(trpc.admin.alerting.getTtfbBaseline.mutationOptions());
+}
+
+export function useDeleteTtfbAlertingConfig() {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+
+  return useMutation(
+    trpc.admin.alerting.deleteTtfbConfig.mutationOptions({
+      onSuccess: () => {
+        void queryClient.invalidateQueries({
+          queryKey: trpc.admin.alerting.listTtfbConfigs.queryKey(),
+        });
+      },
+    })
+  );
+}

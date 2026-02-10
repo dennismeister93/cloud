@@ -154,6 +154,11 @@ const analyticsObservabilityItems: MenuItem[] = [
     url: '/admin/alerting',
     icon: () => <Bell />,
   },
+  {
+    title: () => 'Alerting (TTFB)',
+    url: '/admin/alerting-ttfb',
+    icon: () => <Bell />,
+  },
 ];
 
 const menuSections: MenuSection[] = [
