@@ -25,7 +25,7 @@ export const setPasswordRequestSchema = z.object({
 export const slugParamSchema = z
   .string()
   .regex(/^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/)
-  .min(1)
+  .min(3)
   .max(63);
 
 export const setSlugMappingRequestSchema = z.object({
