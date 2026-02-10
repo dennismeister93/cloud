@@ -22,7 +22,7 @@ export async function buildEnvVars(
   gatewayTokenSecret?: string
 ): Promise<Record<string, string>> {
   const envVars: Record<string, string> = {};
-  const isMultiTenant = Boolean(sandboxId);
+  const isMultiTenant = Boolean(sandboxId && gatewayTokenSecret);
 
   // Cloudflare AI Gateway configuration (new native provider)
   if (env.CLOUDFLARE_AI_GATEWAY_API_KEY) {

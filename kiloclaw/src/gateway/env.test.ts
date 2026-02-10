@@ -200,11 +200,14 @@ describe('buildEnvVars', () => {
     expect(result.CF_AI_GATEWAY_MODEL).toBe('anthropic/claude-sonnet-4-5');
   });
 
-  it('does not set gateway token or auto-approve without secret', async () => {
-    const env = createMockEnv();
+  it('falls back to shared-sandbox mode without gatewayTokenSecret', async () => {
+    const env = createMockEnv({ TELEGRAM_BOT_TOKEN: 'tg-token' });
     const result = await buildEnvVars(env, 'sandbox-id');
 
+    // No gateway token or auto-approve without the secret
     expect(result.OPENCLAW_GATEWAY_TOKEN).toBeUndefined();
     expect(result.AUTO_APPROVE_DEVICES).toBeUndefined();
+    // Channel tokens still passed through (shared-sandbox behavior)
+    expect(result.TELEGRAM_BOT_TOKEN).toBe('tg-token');
   });
 });

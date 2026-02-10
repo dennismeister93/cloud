@@ -135,6 +135,18 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
           });
         }
       }
+    } else {
+      // safeParse failed -- storage contains data in an unexpected shape.
+      // With .default() on every field this should only happen if storage
+      // contains truly malformed values (e.g. wrong types). Log the error
+      // and fall through to defaults (all fields null/false/0).
+      const hasAnyData = entries.size > 0;
+      if (hasAnyData) {
+        console.warn(
+          '[DO] Persisted state failed validation, treating as fresh. Errors:',
+          parsed.error.flatten().fieldErrors
+        );
+      }
     }
 
     this.loaded = true;

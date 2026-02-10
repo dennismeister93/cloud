@@ -107,9 +107,22 @@ function isPlatformRoute(c: Context<AppEnv>): boolean {
   return new URL(c.req.url).pathname.startsWith('/api/platform');
 }
 
-/** Reject early if required secrets are missing (skip for debug routes, platform routes, and dev mode). */
+/** Reject early if required secrets are missing (skip for debug routes and dev mode). */
 async function requireEnvVars(c: Context<AppEnv>, next: Next) {
-  if (isDebugRoute(c) || isPlatformRoute(c) || c.env.DEV_MODE === 'true') {
+  if (isDebugRoute(c) || c.env.DEV_MODE === 'true') {
+    return next();
+  }
+
+  // Platform routes need infra bindings but not AI provider keys
+  if (isPlatformRoute(c)) {
+    const missing: string[] = [];
+    if (!c.env.INTERNAL_API_SECRET) missing.push('INTERNAL_API_SECRET');
+    if (!c.env.HYPERDRIVE?.connectionString) missing.push('HYPERDRIVE');
+    if (!c.env.GATEWAY_TOKEN_SECRET) missing.push('GATEWAY_TOKEN_SECRET');
+    if (missing.length > 0) {
+      console.error('[CONFIG] Platform route missing bindings:', missing.join(', '));
+      return c.json({ error: 'Configuration error', missing }, 503);
+    }
     return next();
   }
 
