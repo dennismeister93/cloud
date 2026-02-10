@@ -92,25 +92,20 @@ export async function sendAlertNotification(alert: AlertPayload, env: NotifyEnv)
 
 	const webhookUrl = await webhookSecret.get();
 	if (!webhookUrl) {
-		console.error(`No Slack webhook configured for severity: ${alert.severity}`);
-		return;
+		throw new Error(`No Slack webhook configured for severity: ${alert.severity}`);
 	}
 
 	const body = buildSlackMessage(alert);
 
-	try {
-		const response = await fetch(webhookUrl, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(body),
-			signal: AbortSignal.timeout(5_000),
-		});
+	const response = await fetch(webhookUrl, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(body),
+		signal: AbortSignal.timeout(5_000),
+	});
 
-		if (!response.ok) {
-			const text = await response.text();
-			console.error(`Slack webhook failed (${response.status}): ${text}`);
-		}
-	} catch (err) {
-		console.error(`Slack webhook request failed: ${err instanceof Error ? err.message : err}`);
+	if (!response.ok) {
+		const text = await response.text();
+		throw new Error(`Slack webhook failed (${response.status}): ${text}`);
 	}
 }

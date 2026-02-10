@@ -243,17 +243,23 @@ export async function evaluateAlerts(env: Env): Promise<void> {
 		return b.burnRate - a.burnRate;
 	});
 
+	const errors: unknown[] = [];
+
 	for (const window of sortedWindows) {
 		try {
 			await evaluateErrorRateWindow(window, configByModel, env);
 		} catch (err) {
-			console.error(`Error evaluating error rate window (${window.longWindowMinutes}m):`, err);
+			errors.push(err);
 		}
 
 		try {
 			await evaluateTtfbWindow(window, ttfbConfigByModel, env);
 		} catch (err) {
-			console.error(`Error evaluating TTFB window (${window.longWindowMinutes}m):`, err);
+			errors.push(err);
 		}
+	}
+
+	if (errors.length > 0) {
+		throw new AggregateError(errors, `Alert evaluation failed with ${errors.length} error(s)`);
 	}
 }
