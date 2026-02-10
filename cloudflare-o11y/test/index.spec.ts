@@ -10,6 +10,10 @@ function makeWriteDataPointSpy() {
 	return { writeDataPoint: vi.fn() };
 }
 
+function makePipelineSpy() {
+	return { send: vi.fn(async () => {}) };
+}
+
 function makeKvMock(): KVNamespace {
 	const store = new Map<string, string>();
 	return {
@@ -42,6 +46,8 @@ function makeTestEnv(overrides?: Partial<Env>): Env {
 		} as SecretsStoreSecret,
 		O11Y_API_METRICS: makeWriteDataPointSpy() as unknown as AnalyticsEngineDataset,
 		O11Y_SESSION_METRICS: makeWriteDataPointSpy() as unknown as AnalyticsEngineDataset,
+		API_METRICS_STREAM: makePipelineSpy() as unknown as Env['API_METRICS_STREAM'],
+		SESSION_METRICS_STREAM: makePipelineSpy() as unknown as Env['SESSION_METRICS_STREAM'],
 		O11Y_ALERT_STATE: makeKvMock(),
 		ALERT_CONFIG_DO: makeAlertConfigDOMock(),
 		O11Y_CF_ACCOUNT_ID: 'test-account-id' as never,
@@ -103,9 +109,13 @@ describe('o11y worker', () => {
 		expect(response.status).toBe(204);
 	});
 
-	it('writes data point to Analytics Engine on successful ingest', async () => {
+	it('writes data point to Analytics Engine and Pipeline on successful ingest', async () => {
 		const aeSpy = makeWriteDataPointSpy();
-		const env = makeTestEnv({ O11Y_API_METRICS: aeSpy as unknown as AnalyticsEngineDataset });
+		const pipelineSpy = makePipelineSpy();
+		const env = makeTestEnv({
+			O11Y_API_METRICS: aeSpy as unknown as AnalyticsEngineDataset,
+			API_METRICS_STREAM: pipelineSpy as unknown as Env['API_METRICS_STREAM'],
+		});
 
 		const request = new IncomingRequest('https://example.com/ingest/api-metrics', {
 			method: 'POST',
@@ -116,13 +126,29 @@ describe('o11y worker', () => {
 			body: JSON.stringify(makeValidApiMetricsBody({ statusCode: 200 })),
 		});
 
-		await workerFetch(request, env, createExecutionContext());
+		const ctx = createExecutionContext();
+		await workerFetch(request, env, ctx);
+		await waitOnExecutionContext(ctx);
 
 		expect(aeSpy.writeDataPoint).toHaveBeenCalledOnce();
 		const call = aeSpy.writeDataPoint.mock.calls[0][0];
 		expect(call.indexes).toEqual(['anthropic/claude-sonnet-4.5']);
 		expect(call.blobs).toEqual(['openai', 'anthropic/claude-sonnet-4.5', 'kilo-gateway', '0', 'openai']);
 		expect(call.doubles).toEqual([45, 123, 200]);
+
+		expect(pipelineSpy.send).toHaveBeenCalledOnce();
+		expect(pipelineSpy.send.mock.calls[0][0]).toEqual([
+			{
+				provider: 'openai',
+				resolved_model: 'anthropic/claude-sonnet-4.5',
+				client_name: 'kilo-gateway',
+				is_error: false,
+				inference_provider: 'openai',
+				ttfb_ms: 45,
+				complete_request_ms: 123,
+				status_code: 200,
+			},
+		]);
 	});
 
 	it('defaults inferenceProvider to empty string', async () => {
@@ -227,9 +253,13 @@ describe('session metrics RPC', () => {
 		};
 	}
 
-	it('writes session metrics to Analytics Engine', async () => {
+	it('writes session metrics to Analytics Engine and Pipeline', async () => {
 		const aeSpy = makeWriteDataPointSpy();
-		const env = makeTestEnv({ O11Y_SESSION_METRICS: aeSpy as unknown as AnalyticsEngineDataset });
+		const pipelineSpy = makePipelineSpy();
+		const env = makeTestEnv({
+			O11Y_SESSION_METRICS: aeSpy as unknown as AnalyticsEngineDataset,
+			SESSION_METRICS_STREAM: pipelineSpy as unknown as Env['SESSION_METRICS_STREAM'],
+		});
 		const ctx = createExecutionContext();
 		const instance = new Worker(ctx, env);
 
@@ -241,6 +271,28 @@ describe('session metrics RPC', () => {
 		expect(call.indexes).toEqual(['cli']);
 		expect(call.blobs).toEqual(['completed', 'cli', 'org_456', 'user_123', 'anthropic/claude-sonnet-4']);
 		expect(call.doubles).toEqual([60000, 1500, 5, 12, 2, 21000, 0.15, 1, 0, 1, 1]);
+
+		expect(pipelineSpy.send).toHaveBeenCalledOnce();
+		expect(pipelineSpy.send.mock.calls[0][0]).toEqual([
+			{
+				platform: 'cli',
+				termination_reason: 'completed',
+				organization_id: 'org_456',
+				kilo_user_id: 'user_123',
+				model: 'anthropic/claude-sonnet-4',
+				session_duration_ms: 60000,
+				time_to_first_response_ms: 1500,
+				total_turns: 5,
+				total_steps: 12,
+				total_errors: 2,
+				total_tokens: 21000,
+				total_cost: 0.15,
+				compaction_count: 1,
+				stuck_tool_call_count: 0,
+				auto_compaction_count: 1,
+				ingest_version: 1,
+			},
+		]);
 	});
 
 	it('uses empty string for missing organizationId in AE', async () => {

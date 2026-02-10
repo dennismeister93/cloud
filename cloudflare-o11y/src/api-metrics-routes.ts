@@ -34,7 +34,7 @@ export const ApiMetricsParamsSchema = z.object({
 export function registerApiMetricsRoutes(app: Hono<{ Bindings: Env }>): void {
 	app.post('/ingest/api-metrics', requireAdmin, zodJsonValidator(ApiMetricsParamsSchema), async (c) => {
 		const params = c.req.valid('json');
-		writeApiMetricsDataPoint(params, 'kilo-gateway', c.env);
+		writeApiMetricsDataPoint(params, 'kilo-gateway', c.env, (p) => c.executionCtx.waitUntil(p));
 		return c.body(null, 204);
 	});
 }

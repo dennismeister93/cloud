@@ -39,6 +39,15 @@
 		{ "binding": "O11Y_SESSION_METRICS", "dataset": "o11y_session_metrics" },
 	],
 	/**
+	 * Pipelines -- dual-write to R2 as Parquet for Snowflake export.
+	 * Requires infra setup: see pipelines/ directory for stream schemas;
+	 * provision the corresponding streams, sinks, and pipelines via wrangler CLI.
+	 */
+	"pipelines": [
+		{ "pipeline": "7b8a59eeeb954bfbb6988a02b4f010de", "binding": "API_METRICS_STREAM" },
+		{ "pipeline": "898bb5b1a6b44634b34f1b1a3cdcb2c6", "binding": "SESSION_METRICS_STREAM" },
+	],
+	/**
 	 * KV Namespace — stores alert dedup state (TTL-based cooldowns)
 	 */
 	"kv_namespaces": [{ "binding": "O11Y_ALERT_STATE", "id": "aef43060c5334b9995450a780eea94fb" }],
