@@ -153,6 +153,11 @@ const menuItems: MenuItem[] = [
     url: '/admin/alerting',
     icon: () => <Bell />,
   },
+  {
+    title: () => 'Alerting (TTFB)',
+    url: '/admin/alerting-ttfb',
+    icon: () => <Bell />,
+  },
 ];
 
 export function AppSidebar({
