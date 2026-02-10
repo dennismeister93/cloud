@@ -159,7 +159,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
 
       - name: Check for cloud-agent changes
         uses: dorny/paths-filter@v3
@@ -183,7 +183,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
 
       - name: Check for session-ingest changes
         uses: dorny/paths-filter@v3
@@ -209,7 +209,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
 
       - name: Check for o11y changes
         uses: dorny/paths-filter@v3
@@ -235,7 +235,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
 
       - name: Check for git-token-service changes
         uses: dorny/paths-filter@v3
@@ -259,7 +259,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
 
       - name: Check for deployment-dispatcher changes
         uses: dorny/paths-filter@v3
@@ -283,7 +283,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
 
       - name: Check for deployment-builder changes
         uses: dorny/paths-filter@v3
@@ -307,7 +307,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
 
       - name: Check for app-builder changes
         uses: dorny/paths-filter@v3
