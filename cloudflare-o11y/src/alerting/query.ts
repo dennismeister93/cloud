@@ -135,33 +135,57 @@ export function queryTtfbExceedRates(
 }
 
 export type TtfbBaselineRow = {
-	p95_ttfb_1d: number | null;
+	p95_ttfb_1d: number;
 	weighted_total_1d: number;
-	p95_ttfb_3d: number | null;
+	p95_ttfb_3d: number;
 	weighted_total_3d: number;
-	p95_ttfb_7d: number | null;
+	p95_ttfb_7d: number;
 	weighted_total_7d: number;
 };
 
+type TtfbBaselineWindowRow = {
+	p95_ttfb: number;
+	weighted_total: number;
+};
+
 /**
- * Query 1d/3d/7d p95 TTFB baselines for a specific model.
+ * Query p95 TTFB and request count for a model within a given time window.
+ * Uses quantileExactWeighted for correct results under AE sampling.
  * Only considers successful requests (blob4 = '0').
  */
-export async function queryTtfbBaseline(model: string, env: AeQueryEnv): Promise<TtfbBaselineRow | null> {
+async function queryTtfbBaselineWindow(model: string, days: number, env: AeQueryEnv): Promise<TtfbBaselineWindowRow> {
 	const modelValue = escapeSqlString(model);
 	const sql = `
 		SELECT
-			QUANTILE(0.95)(IF(timestamp > NOW() - INTERVAL '1' DAY AND blob4 = '0', double1, NULL)) AS p95_ttfb_1d,
-			SUM(IF(timestamp > NOW() - INTERVAL '1' DAY AND blob4 = '0', _sample_interval, 0)) AS weighted_total_1d,
-			QUANTILE(0.95)(IF(timestamp > NOW() - INTERVAL '3' DAY AND blob4 = '0', double1, NULL)) AS p95_ttfb_3d,
-			SUM(IF(timestamp > NOW() - INTERVAL '3' DAY AND blob4 = '0', _sample_interval, 0)) AS weighted_total_3d,
-			QUANTILE(0.95)(IF(timestamp > NOW() - INTERVAL '7' DAY AND blob4 = '0', double1, NULL)) AS p95_ttfb_7d,
-			SUM(IF(timestamp > NOW() - INTERVAL '7' DAY AND blob4 = '0', _sample_interval, 0)) AS weighted_total_7d
+			quantileExactWeighted(0.95)(double1, _sample_interval) AS p95_ttfb,
+			SUM(_sample_interval) AS weighted_total
 		FROM o11y_api_metrics
-		WHERE blob2 = '${modelValue}' AND blob4 = '0' AND timestamp > NOW() - INTERVAL '7' DAY
+		WHERE blob2 = '${modelValue}' AND blob4 = '0'
+			AND timestamp > NOW() - INTERVAL '${days}' DAY
 		FORMAT JSON
 	`;
 
-	const rows = await queryAnalyticsEngine<TtfbBaselineRow>(sql, env);
-	return rows[0] ?? null;
+	const rows = await queryAnalyticsEngine<TtfbBaselineWindowRow>(sql, env);
+	return rows[0] ?? { p95_ttfb: 0, weighted_total: 0 };
+}
+
+/**
+ * Query 1d/3d/7d p95 TTFB baselines for a specific model.
+ * Issues one query per time window for correct quantile computation.
+ */
+export async function queryTtfbBaseline(model: string, env: AeQueryEnv): Promise<TtfbBaselineRow> {
+	const [d1, d3, d7] = await Promise.all([
+		queryTtfbBaselineWindow(model, 1, env),
+		queryTtfbBaselineWindow(model, 3, env),
+		queryTtfbBaselineWindow(model, 7, env),
+	]);
+
+	return {
+		p95_ttfb_1d: Number(d1.p95_ttfb || 0),
+		weighted_total_1d: Number(d1.weighted_total || 0),
+		p95_ttfb_3d: Number(d3.p95_ttfb || 0),
+		weighted_total_3d: Number(d3.weighted_total || 0),
+		p95_ttfb_7d: Number(d7.p95_ttfb || 0),
+		weighted_total_7d: Number(d7.weighted_total || 0),
+	};
 }

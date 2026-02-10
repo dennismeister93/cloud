@@ -104,18 +104,15 @@ export function registerAlertingConfigRoutes(app: Hono<{ Bindings: Env }>): void
 		}
 
 		const baseline = await queryTtfbBaseline(model, c.env);
-		if (!baseline) {
-			return c.json({ success: true, baseline: null });
-		}
 
 		const response = {
 			model,
-			p95Ttfb1d: Number(baseline.p95_ttfb_1d ?? 0),
-			p95Ttfb3d: Number(baseline.p95_ttfb_3d ?? 0),
-			p95Ttfb7d: Number(baseline.p95_ttfb_7d ?? 0),
-			requests1d: Number(baseline.weighted_total_1d || 0),
-			requests3d: Number(baseline.weighted_total_3d || 0),
-			requests7d: Number(baseline.weighted_total_7d || 0),
+			p95Ttfb1d: baseline.p95_ttfb_1d,
+			p95Ttfb3d: baseline.p95_ttfb_3d,
+			p95Ttfb7d: baseline.p95_ttfb_7d,
+			requests1d: baseline.weighted_total_1d,
+			requests3d: baseline.weighted_total_3d,
+			requests7d: baseline.weighted_total_7d,
 		};
 
 		return c.json({ success: true, baseline: response });
