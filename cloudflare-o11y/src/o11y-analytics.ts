@@ -8,6 +8,7 @@ type ApiMetricsParams = z.infer<typeof ApiMetricsParamsSchema>;
  * and dual-write a structured event to Pipelines for R2/Snowflake export.
  *
  * AE Schema:
+ *   index1  = resolvedModel (sampling key — ensures equitable sampling per model)
  *   blob1   = provider
  *   blob2   = resolvedModel
  *   blob3   = clientName
@@ -26,6 +27,7 @@ export function writeApiMetricsDataPoint(
 	const isError = params.statusCode >= 400;
 
 	env.O11Y_API_METRICS.writeDataPoint({
+		indexes: [params.resolvedModel],
 		blobs: [params.provider, params.resolvedModel, clientName, isError ? '1' : '0', params.inferenceProvider],
 		doubles: [params.ttfbMs, params.completeRequestMs, params.statusCode],
 	});
