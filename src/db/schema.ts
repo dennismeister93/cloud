@@ -2802,3 +2802,38 @@ export const agent_environment_profile_commands = pgTable(
 );
 
 export type AgentEnvironmentProfileCommand = typeof agent_environment_profile_commands.$inferSelect;
+
+// ============ APP BUILDER FEEDBACK ============
+
+export const app_builder_feedback = pgTable(
+  'app_builder_feedback',
+  {
+    id: uuid()
+      .default(sql`pg_catalog.gen_random_uuid()`)
+      .primaryKey()
+      .notNull(),
+    kilo_user_id: text().references(() => kilocode_users.id, {
+      onDelete: 'set null',
+      onUpdate: 'cascade',
+    }),
+    project_id: uuid().references(() => app_builder_projects.id, {
+      onDelete: 'cascade',
+    }),
+    session_id: text(),
+    model: text(),
+    preview_status: text(),
+    is_streaming: boolean(),
+    message_count: integer(),
+    feedback_text: text().notNull(),
+    recent_messages: jsonb().$type<{ role: string; text: string; ts: number }[]>(),
+    created_at: timestamp({ withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+  },
+  table => [
+    index('IDX_app_builder_feedback_created_at').on(table.created_at),
+    index('IDX_app_builder_feedback_kilo_user_id').on(table.kilo_user_id),
+    index('IDX_app_builder_feedback_project_id').on(table.project_id),
+  ]
+);
+
+export type AppBuilderFeedback = typeof app_builder_feedback.$inferSelect;
+export type NewAppBuilderFeedback = typeof app_builder_feedback.$inferInsert;
