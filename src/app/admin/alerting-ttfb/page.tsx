@@ -106,7 +106,8 @@ export default function AdminAlertingTtfbPage() {
   };
 
   const applySuggestedDefaults = async (modelId: string) => {
-    const baseline = baselineByModel[modelId] ?? (await loadBaseline(modelId));
+    const cached = baselineByModel[modelId];
+    const baseline = cached !== undefined ? cached : await loadBaseline(modelId);
     if (!baseline) {
       toast.error('Baseline not available for suggestions');
       return;
