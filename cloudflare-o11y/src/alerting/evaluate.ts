@@ -249,13 +249,13 @@ export async function evaluateAlerts(env: Env): Promise<void> {
 		try {
 			await evaluateErrorRateWindow(window, configByModel, env);
 		} catch (err) {
-			errors.push(err);
+			errors.push(new Error(`error_rate window (${window.longWindowMinutes}m)`, { cause: err }));
 		}
 
 		try {
 			await evaluateTtfbWindow(window, ttfbConfigByModel, env);
 		} catch (err) {
-			errors.push(err);
+			errors.push(new Error(`ttfb window (${window.longWindowMinutes}m)`, { cause: err }));
 		}
 	}
 
