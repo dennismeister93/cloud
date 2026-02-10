@@ -13,15 +13,17 @@ import {
   UserIdRequestSchema,
   DestroyRequestSchema,
 } from '../schemas/instance-config';
+import { withDORetry } from '../util/do-retry';
 import type { z } from 'zod';
 
 const platform = new Hono<AppEnv>();
 
 /**
- * Resolve the KiloClawInstance DO stub for a userId.
+ * Create a fresh KiloClawInstance DO stub for a userId.
+ * Returns a factory (not the stub itself) so withDORetry can get a fresh stub per attempt.
  */
-function getInstanceStub(env: AppEnv['Bindings'], userId: string) {
-  return env.KILOCLAW_INSTANCE.get(env.KILOCLAW_INSTANCE.idFromName(userId));
+function instanceStubFactory(env: AppEnv['Bindings'], userId: string) {
+  return () => env.KILOCLAW_INSTANCE.get(env.KILOCLAW_INSTANCE.idFromName(userId));
 }
 
 /**
@@ -57,8 +59,11 @@ platform.post('/provision', async c => {
   const { userId, envVars, encryptedSecrets, channels } = result.data;
 
   try {
-    const instance = getInstanceStub(c.env, userId);
-    const provision = await instance.provision(userId, { envVars, encryptedSecrets, channels });
+    const provision = await withDORetry(
+      instanceStubFactory(c.env, userId),
+      stub => stub.provision(userId, { envVars, encryptedSecrets, channels }),
+      'provision'
+    );
     return c.json(provision, 201);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
@@ -76,8 +81,11 @@ platform.post('/start', async c => {
   if ('error' in result) return result.error;
 
   try {
-    const instance = getInstanceStub(c.env, result.data.userId);
-    await instance.start();
+    await withDORetry(
+      instanceStubFactory(c.env, result.data.userId),
+      stub => stub.start(),
+      'start'
+    );
     return c.json({ ok: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
@@ -92,8 +100,7 @@ platform.post('/stop', async c => {
   if ('error' in result) return result.error;
 
   try {
-    const instance = getInstanceStub(c.env, result.data.userId);
-    await instance.stop();
+    await withDORetry(instanceStubFactory(c.env, result.data.userId), stub => stub.stop(), 'stop');
     return c.json({ ok: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
@@ -108,8 +115,11 @@ platform.post('/destroy', async c => {
   if ('error' in result) return result.error;
 
   try {
-    const instance = getInstanceStub(c.env, result.data.userId);
-    await instance.destroy(result.data.deleteData);
+    await withDORetry(
+      instanceStubFactory(c.env, result.data.userId),
+      stub => stub.destroy(result.data.deleteData),
+      'destroy'
+    );
     return c.json({ ok: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
@@ -126,8 +136,11 @@ platform.get('/status', async c => {
   }
 
   try {
-    const instance = getInstanceStub(c.env, userId);
-    const status = await instance.getStatus();
+    const status = await withDORetry(
+      instanceStubFactory(c.env, userId),
+      stub => stub.getStatus(),
+      'getStatus'
+    );
     return c.json(status);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';

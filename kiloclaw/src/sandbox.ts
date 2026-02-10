@@ -8,6 +8,7 @@
 import { Sandbox } from '@cloudflare/sandbox';
 import type { KiloClawEnv } from './types';
 import { userIdFromSandboxId } from './auth/sandbox-id';
+import { withDORetry } from './util/do-retry';
 
 // StopParams from @cloudflare/containers -- not re-exported by @cloudflare/sandbox
 // but the runtime passes this object to onStop regardless of the declared signature.
@@ -55,10 +56,12 @@ export class KiloClawSandbox extends Sandbox<KiloClawEnv> {
     // sandboxId is base64url-encoded userId -- decode locally, no DB lookup.
     try {
       const userId = userIdFromSandboxId(this.sandboxId);
-      const instance = this.env.KILOCLAW_INSTANCE.get(
-        this.env.KILOCLAW_INSTANCE.idFromName(userId)
+      const stopParams = params ?? ({ exitCode: -1, reason: 'exit' } as const);
+      await withDORetry(
+        () => this.env.KILOCLAW_INSTANCE.get(this.env.KILOCLAW_INSTANCE.idFromName(userId)),
+        stub => stub.handleContainerStopped(stopParams),
+        'handleContainerStopped'
       );
-      await instance.handleContainerStopped(params ?? { exitCode: -1, reason: 'exit' });
     } catch (err) {
       console.error('[lifecycle] Failed to notify DO on stop:', err);
     }
