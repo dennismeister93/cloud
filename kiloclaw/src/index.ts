@@ -17,7 +17,7 @@ import { getSandbox, type SandboxOptions } from '@cloudflare/sandbox';
 import type { AppEnv, KiloClawEnv } from './types';
 import { OPENCLAW_PORT } from './config';
 import { ensureOpenClawGateway, findExistingGatewayProcess } from './gateway';
-import { publicRoutes, api, debug, platform } from './routes';
+import { publicRoutes, api, kiloclaw, debug, platform } from './routes';
 import { redactSensitiveParams } from './utils/logging';
 import { authMiddleware, internalApiMiddleware } from './auth';
 import { sandboxIdFromUserId } from './auth/sandbox-id';
@@ -32,9 +32,9 @@ export { KiloClawInstance } from './durable-objects/kiloclaw-instance';
 // Helpers
 // =============================================================================
 
-function transformErrorMessage(message: string, host: string): string {
+function transformErrorMessage(message: string): string {
   if (message.includes('gateway token missing') || message.includes('gateway token mismatch')) {
-    return `Invalid or missing token. Visit https://${host}?token={REPLACE_WITH_YOUR_TOKEN}`;
+    return 'Gateway authentication failed. Please reconnect.';
   }
   return message;
 }
@@ -186,6 +186,7 @@ app.use('*', deriveSandboxId);
 
 // API routes (user-facing, JWT auth)
 app.route('/api', api);
+app.route('/api/kiloclaw', kiloclaw);
 
 // Platform routes (backend-to-backend, x-internal-api-key)
 app.use('/api/platform/*', internalApiMiddleware);
@@ -263,6 +264,11 @@ app.all('*', async c => {
       console.log('[WS] URL:', url.pathname + redactedSearch);
     }
 
+    // NOTE: The catch-all proxy routes to the shared sandbox, not the user's
+    // per-user sandbox. Gateway token injection is NOT done here because the
+    // shared sandbox's gateway was not started with a per-user token.
+    // Per-user WebSocket proxying will be added when the catch-all is replaced
+    // with per-user sandbox resolution.
     const containerResponse = await sandbox.wsConnect(request, OPENCLAW_PORT);
     console.log('[WS] wsConnect response status:', containerResponse.status);
 
@@ -324,7 +330,7 @@ app.all('*', async c => {
             if (debugLogs) {
               console.log('[WS] Original error.message:', parsed.error.message);
             }
-            parsed.error.message = transformErrorMessage(parsed.error.message, url.host);
+            parsed.error.message = transformErrorMessage(parsed.error.message);
             if (debugLogs) {
               console.log('[WS] Transformed error.message:', parsed.error.message);
             }
@@ -356,7 +362,7 @@ app.all('*', async c => {
       if (debugLogs) {
         console.log('[WS] Container closed:', event.code, event.reason);
       }
-      let reason = transformErrorMessage(event.reason, url.host);
+      let reason = transformErrorMessage(event.reason);
       if (reason.length > 123) {
         reason = reason.slice(0, 120) + '...';
       }
