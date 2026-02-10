@@ -2,7 +2,7 @@ import type { SessionMetricsParams } from './session-metrics-schema';
 
 /**
  * Write a session metrics data point to Analytics Engine,
- * and dual-write a structured event to Pipelines for R2/Snowflake export.
+ * and dual-write a structured event to a Stream for R2/Snowflake export.
  *
  * AE Schema:
  *   index1  = platform (for per-platform querying)
@@ -50,7 +50,7 @@ export function writeSessionMetricsDataPoint(params: SessionMetricsParams, env: 
 	});
 
 	waitUntil(
-		env.PIPELINE_SESSION_METRICS.send([
+		env.SESSION_METRICS_STREAM.send([
 			{
 				platform: params.platform,
 				termination_reason: params.terminationReason,

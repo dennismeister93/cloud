@@ -14,8 +14,8 @@ declare namespace Cloudflare {
 		O11Y_CF_AE_API_TOKEN: SecretsStoreSecret;
 		O11Y_SLACK_WEBHOOK_PAGE: SecretsStoreSecret;
 		O11Y_SLACK_WEBHOOK_TICKET: SecretsStoreSecret;
-		PIPELINE_API_METRICS: import('cloudflare:pipelines').Pipeline<import('cloudflare:pipelines').PipelineRecord>;
-		PIPELINE_SESSION_METRICS: import('cloudflare:pipelines').Pipeline<import('cloudflare:pipelines').PipelineRecord>;
+		API_METRICS_STREAM: import('cloudflare:pipelines').Pipeline<import('cloudflare:pipelines').PipelineRecord>;
+		SESSION_METRICS_STREAM: import('cloudflare:pipelines').Pipeline<import('cloudflare:pipelines').PipelineRecord>;
 		O11Y_CF_ACCOUNT_ID: 'e115e769bcdd4c3d66af59d3332cb394';
 		O11Y_API_BASE_URL: string;
 		ALERT_CONFIG_DO: DurableObjectNamespace<import('./src/index').AlertConfigDO>;

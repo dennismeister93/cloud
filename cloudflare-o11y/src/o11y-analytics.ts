@@ -5,7 +5,7 @@ type ApiMetricsParams = z.infer<typeof ApiMetricsParamsSchema>;
 
 /**
  * Write an API metrics data point to Analytics Engine for alerting queries,
- * and dual-write a structured event to Pipelines for R2/Snowflake export.
+ * and dual-write a structured event to a Stream for R2/Snowflake export.
  *
  * AE Schema:
  *   index1  = resolvedModel (sampling key — ensures equitable sampling per model)
@@ -33,7 +33,7 @@ export function writeApiMetricsDataPoint(
 	});
 
 	waitUntil(
-		env.PIPELINE_API_METRICS.send([
+		env.API_METRICS_STREAM.send([
 			{
 				provider: params.provider,
 				resolved_model: params.resolvedModel,
