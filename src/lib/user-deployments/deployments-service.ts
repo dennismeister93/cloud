@@ -763,10 +763,15 @@ export async function createDeployment(params: {
       return deployment.id;
     });
   } catch (error) {
+    // The slug mapping (line 727) and worker already exist at this point.
+    // Clean up both on failure to avoid orphaned resources.
+    await dispatcherClient.deleteSlugMapping(internalWorkerName).catch(() => {});
+    await deployApiClient.deleteWorker(internalWorkerName).catch(() => {});
+
     // Handle unique constraint violation on deployment_slug (rare race condition).
+    // Everything has been torn down at this point, so ask the user to retry.
     if (isUniqueConstraintError(error, 'UQ_deployments_deployment_slug')) {
-      await deployApiClient.deleteWorker(internalWorkerName).catch(() => {});
-      return { success: false, error: 'slug_taken', message: 'This subdomain is already taken' };
+      return { success: false, error: 'slug_taken', message: 'Please try again' };
     }
     throw error;
   }
