@@ -6,6 +6,9 @@ import { USER_DEPLOYMENTS_API_AUTH_KEY } from '@/lib/config.server';
 import { eq } from 'drizzle-orm';
 import * as z from 'zod';
 import { webhookPayloadSchema, type WebhookPayload } from '@/lib/user-deployments/types';
+import { sendDeploymentFailedEmail } from '@/lib/email';
+import { findUserById } from '@/lib/user';
+import { getOrganizationMembers } from '@/lib/organizations/organizations';
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const authHeader = req.headers.get('Authorization');
@@ -81,6 +84,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           })
           .where(eq(deployments.id, updatedBuild.deployment_id));
       }
+
+      // If failed, send an email notification to the deployment creator
+      const isFailed = lastStatusChangeEvent.payload.status === 'failed';
+      if (isFailed && updatedBuild) {
+        sendDeploymentFailureNotification(updatedBuild.deployment_id).catch(error => {
+          console.error('Failed to send deployment failure email:', error);
+        });
+      }
     }
   } catch (error) {
     console.error('Failed to process deployment events:', error);
@@ -88,4 +99,48 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   return new NextResponse(null, { status: 200 });
+}
+
+async function resolveRecipientEmails(deployment: {
+  created_by_user_id: string | null;
+  owned_by_organization_id: string | null;
+}): Promise<string[]> {
+  // Try the deployment creator first
+  if (deployment.created_by_user_id) {
+    const creator = await findUserById(deployment.created_by_user_id);
+    if (creator) {
+      return [creator.google_user_email];
+    }
+  }
+
+  // Fall back to org owners for org-owned deployments
+  if (deployment.owned_by_organization_id) {
+    const members = await getOrganizationMembers(deployment.owned_by_organization_id);
+    return members.filter(m => m.role === 'owner').map(m => m.email);
+  }
+
+  return [];
+}
+
+async function sendDeploymentFailureNotification(deploymentId: string) {
+  const deployment = await db.query.deployments.findFirst({
+    where: eq(deployments.id, deploymentId),
+  });
+
+  if (!deployment) {
+    return;
+  }
+
+  const emails = await resolveRecipientEmails(deployment);
+
+  await Promise.all(
+    emails.map(email =>
+      sendDeploymentFailedEmail({
+        to: email,
+        deployment_name: deployment.deployment_slug,
+        deployment_url: deployment.deployment_url,
+        repository: deployment.repository_source,
+      })
+    )
+  );
 }
