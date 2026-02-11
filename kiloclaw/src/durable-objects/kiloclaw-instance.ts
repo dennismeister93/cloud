@@ -3,13 +3,13 @@
  *
  * Primary source of truth for instance configuration and operational state.
  * API routes are thin wrappers that call into this DO via Workers RPC.
- * The DB (kiloclaw_instances) is a registry mirror for enumeration.
+ * The DB (kiloclaw_instances) is a registry for enumeration (create/destroy only).
  *
  * Keyed by userId: env.KILOCLAW_INSTANCE.idFromName(userId)
  *
  * Authority model:
  * - Create/destroy: DB write inside DO, must succeed or operation fails
- * - Operational state (start/stop): DO is authoritative, DB mirrored best-effort
+ * - Operational state (start/stop): DO is authoritative, not mirrored to DB
  */
 
 import { DurableObject } from 'cloudflare:workers';
@@ -260,9 +260,6 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
 
     // Schedule first sync alarm (+10 minutes -- setup may take a while)
     await this.ctx.storage.setAlarm(Date.now() + FIRST_SYNC_DELAY_MS);
-
-    // Mirror to DB (best-effort)
-    this.mirrorStatusToDb('running', 'last_started_at');
   }
 
   /**
@@ -301,9 +298,6 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
 
     // Clear sync alarm
     await this.ctx.storage.deleteAlarm();
-
-    // Mirror to DB (best-effort)
-    this.mirrorStatusToDb('stopped', 'last_stopped_at');
   }
 
   /**
@@ -396,9 +390,6 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
 
     // Clear sync alarm
     await this.ctx.storage.deleteAlarm();
-
-    // Mirror to DB (best-effort)
-    this.mirrorStatusToDb('stopped', 'last_stopped_at');
   }
 
   // ─── Read methods ─────────────────────────────────────────────────────
@@ -560,7 +551,6 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
         [KEY_LAST_STOPPED_AT]: this.lastStoppedAt,
         [KEY_SYNC_FAIL_COUNT]: this.syncFailCount,
       });
-      this.mirrorStatusToDb('stopped', 'last_stopped_at');
       return 'self-healed';
     }
 
@@ -573,6 +563,8 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
    * Manages the syncInProgress lock and reschedules the next alarm.
    */
   private async performSync(sandbox: Sandbox): Promise<void> {
+    if (!this.userId) return;
+
     this.syncInProgress = true;
     this.syncLockedAt = Date.now();
     await this.ctx.storage.put({
@@ -594,7 +586,7 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
         return;
       }
 
-      const result = await syncToR2(sandbox, this.env, this.userId ?? undefined);
+      const result = await syncToR2(sandbox, this.env, this.userId);
       if (result.success) {
         this.lastSyncAt = Date.now();
         this.syncFailCount = 0;
@@ -633,7 +625,10 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
    * Build env vars from stored user config. Used by start() and restartGateway().
    */
   private async buildUserEnvVars(): Promise<Record<string, string>> {
-    return buildEnvVars(this.env, this.sandboxId ?? undefined, this.env.GATEWAY_TOKEN_SECRET, {
+    if (!this.sandboxId || !this.env.GATEWAY_TOKEN_SECRET) {
+      throw new Error('Cannot build env vars: sandboxId or GATEWAY_TOKEN_SECRET missing');
+    }
+    return buildEnvVars(this.env, this.sandboxId, this.env.GATEWAY_TOKEN_SECRET, {
       envVars: this.envVars ?? undefined,
       encryptedSecrets: this.encryptedSecrets ?? undefined,
       channels: this.channels ?? undefined,
@@ -656,37 +651,6 @@ export class KiloClawInstance extends DurableObject<KiloClawEnv> {
     // Exponential backoff: min(5min * 2^failCount, 30min)
     const delayMs = Math.min(SYNC_INTERVAL_MS * Math.pow(2, this.syncFailCount), MAX_BACKOFF_MS);
     await this.ctx.storage.setAlarm(Date.now() + delayMs);
-  }
-
-  /**
-   * Mirror operational status to DB (best-effort).
-   * Logs on failure but never throws -- the DO is authoritative.
-   */
-  private mirrorStatusToDb(
-    status: 'running' | 'stopped',
-    timestampColumn?: 'last_started_at' | 'last_stopped_at'
-  ): void {
-    if (!this.userId) return;
-
-    const connectionString = this.env.HYPERDRIVE?.connectionString;
-    if (!connectionString) {
-      console.warn('[DO] HYPERDRIVE not configured, skipping DB mirror');
-      return;
-    }
-    const userId = this.userId;
-
-    // Fire and forget via waitUntil
-    this.ctx.waitUntil(
-      (async () => {
-        try {
-          const db = createDatabaseConnection(connectionString);
-          const store = new InstanceStore(db);
-          await store.mirrorStatus(userId, status, timestampColumn);
-        } catch (err) {
-          console.error('[DO] DB mirror failed:', err);
-        }
-      })()
-    );
   }
 
   /**

@@ -1,7 +1,6 @@
 import type { Sandbox, Process } from '@cloudflare/sandbox';
 import type { KiloClawEnv } from '../types';
 import { OPENCLAW_PORT, STARTUP_TIMEOUT_MS } from '../config';
-import { buildEnvVars } from './env';
 
 /**
  * Find an existing OpenClaw gateway process
@@ -44,13 +43,13 @@ export async function findExistingGatewayProcess(sandbox: Sandbox): Promise<Proc
  *
  * @param sandbox - The sandbox instance
  * @param env - Worker environment bindings
- * @param prebuiltEnvVars - Pre-built env vars (multi-tenant path). If omitted, builds from worker env.
+ * @param envVars - Pre-built env vars from buildEnvVars()
  * @returns The running gateway process
  */
 export async function ensureOpenClawGateway(
   sandbox: Sandbox,
   env: KiloClawEnv,
-  prebuiltEnvVars?: Record<string, string>
+  envVars: Record<string, string>
 ): Promise<Process> {
   // Check if gateway is already running or starting
   const existingProcess = await findExistingGatewayProcess(sandbox);
@@ -86,7 +85,6 @@ export async function ensureOpenClawGateway(
 
   // Start a new OpenClaw gateway
   console.log('Starting new OpenClaw gateway...');
-  const envVars = prebuiltEnvVars ?? (await buildEnvVars(env));
   const command = '/usr/local/bin/start-openclaw.sh';
 
   console.log('Starting process with command:', command);

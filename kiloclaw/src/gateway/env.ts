@@ -16,14 +16,7 @@ export type UserConfig = {
 /**
  * Build environment variables to pass to the OpenClaw container process.
  *
- * Two modes:
- * - **Fallback** (no sandboxId): passes worker-level env vars including
- *   channel tokens. Used for dev/testing only.
- * - **Multi-tenant** (sandboxId + gatewayTokenSecret): derives a per-sandbox
- *   gateway token, merges user-provided env vars and decrypted secrets,
- *   decrypts and maps channel tokens, and sets AUTO_APPROVE_DEVICES.
- *
- * Layering order (multi-tenant):
+ * Layering order:
  * 1. Worker-level shared AI keys (platform defaults)
  * 2. User-provided plaintext env vars (override platform defaults)
  * 3. User-provided encrypted secrets (override env vars on conflict)
@@ -31,21 +24,17 @@ export type UserConfig = {
  * 5. Reserved system vars (cannot be overridden by any user config)
  *
  * @param env - Worker environment bindings
- * @param sandboxId - Per-user sandbox ID (multi-tenant path)
+ * @param sandboxId - Per-user sandbox ID
  * @param gatewayTokenSecret - Secret for deriving per-sandbox gateway tokens
  * @param userConfig - User-provided env vars, encrypted secrets, and channel tokens
  * @returns Environment variables record
  */
 export async function buildEnvVars(
   env: KiloClawEnv,
-  sandboxId?: string,
-  gatewayTokenSecret?: string,
+  sandboxId: string,
+  gatewayTokenSecret: string,
   userConfig?: UserConfig
 ): Promise<Record<string, string>> {
-  // Multi-tenant path: both sandboxId and gatewayTokenSecret are present.
-  // When false, falls back to worker-level channel tokens (dev/testing only).
-  const isPerUserPath = Boolean(sandboxId && gatewayTokenSecret);
-
   // Layer 1: Worker-level shared AI keys (platform defaults)
   const envVars: Record<string, string> = {};
 
@@ -69,7 +58,6 @@ export async function buildEnvVars(
   if (env.AI_GATEWAY_API_KEY && env.AI_GATEWAY_BASE_URL) {
     const normalizedBaseUrl = env.AI_GATEWAY_BASE_URL.replace(/\/+$/, '');
     envVars.AI_GATEWAY_BASE_URL = normalizedBaseUrl;
-    // Legacy path routes through Anthropic base URL
     envVars.ANTHROPIC_BASE_URL = normalizedBaseUrl;
     envVars.ANTHROPIC_API_KEY = env.AI_GATEWAY_API_KEY;
   } else if (env.ANTHROPIC_BASE_URL) {
@@ -80,21 +68,8 @@ export async function buildEnvVars(
   if (env.CF_AI_GATEWAY_MODEL) envVars.CF_AI_GATEWAY_MODEL = env.CF_AI_GATEWAY_MODEL;
   if (env.CF_ACCOUNT_ID) envVars.CF_ACCOUNT_ID = env.CF_ACCOUNT_ID;
 
-  // Channel tokens: only pass worker-level tokens in shared-sandbox mode.
-  // In multi-tenant mode, channel tokens come from the user's encrypted config.
-  if (!isPerUserPath) {
-    if (env.TELEGRAM_BOT_TOKEN) envVars.TELEGRAM_BOT_TOKEN = env.TELEGRAM_BOT_TOKEN;
-    if (env.TELEGRAM_DM_POLICY) envVars.TELEGRAM_DM_POLICY = env.TELEGRAM_DM_POLICY;
-    if (env.DISCORD_BOT_TOKEN) envVars.DISCORD_BOT_TOKEN = env.DISCORD_BOT_TOKEN;
-    if (env.DISCORD_DM_POLICY) envVars.DISCORD_DM_POLICY = env.DISCORD_DM_POLICY;
-    if (env.SLACK_BOT_TOKEN) envVars.SLACK_BOT_TOKEN = env.SLACK_BOT_TOKEN;
-    if (env.SLACK_APP_TOKEN) envVars.SLACK_APP_TOKEN = env.SLACK_APP_TOKEN;
-  }
-
-  // Multi-tenant: merge user config on top of platform defaults
-  if (isPerUserPath && userConfig) {
-    // Layer 2 + 3: User env vars merged with decrypted secrets.
-    // Secrets override plaintext env vars on conflict.
+  // Layer 2 + 3: User env vars merged with decrypted secrets.
+  if (userConfig) {
     const userEnv = mergeEnvVarsWithSecrets(
       userConfig.envVars,
       userConfig.encryptedSecrets,
@@ -109,11 +84,9 @@ export async function buildEnvVars(
     }
   }
 
-  // Layer 5: Reserved system vars for multi-tenant mode (cannot be overridden)
-  if (sandboxId && gatewayTokenSecret) {
-    envVars.OPENCLAW_GATEWAY_TOKEN = await deriveGatewayToken(sandboxId, gatewayTokenSecret);
-    envVars.AUTO_APPROVE_DEVICES = 'true';
-  }
+  // Layer 5: Reserved system vars (cannot be overridden by any user config)
+  envVars.OPENCLAW_GATEWAY_TOKEN = await deriveGatewayToken(sandboxId, gatewayTokenSecret);
+  envVars.AUTO_APPROVE_DEVICES = 'true';
 
   return envVars;
 }

@@ -24,11 +24,6 @@ import { authMiddleware, internalApiMiddleware } from './auth';
 import { sandboxIdFromUserId } from './auth/sandbox-id';
 import { debugRoutesGate } from './auth/debug-gate';
 
-// If an instance stopped less than this long ago, treat the next proxy failure
-// as a crash and auto-restart. Covers the race where handleContainerStopped
-// fires before the next user request arrives.
-const CRASH_RECOVERY_WINDOW_MS = 60_000; // 60 seconds
-
 // Export the custom Sandbox subclass with lifecycle hooks (matches wrangler.jsonc class_name)
 export { KiloClawSandbox } from './sandbox';
 // Export the KiloClawInstance DO (matches wrangler.jsonc class_name)
@@ -188,24 +183,14 @@ async function attemptCrashRecovery(c: Context<AppEnv>): Promise<boolean> {
     const stub = c.env.KILOCLAW_INSTANCE.get(c.env.KILOCLAW_INSTANCE.idFromName(userId));
     const status = await stub.getStatus();
 
-    if (status.status === 'running') {
-      // Gateway dead despite running status (race: crash before handleContainerStopped)
-      console.log('[PROXY] Instance status is running but container unreachable, restarting');
-      await stub.start();
-      return true;
+    if (status.status !== 'running') {
+      return false;
     }
 
-    if (status.status === 'stopped' && status.lastStoppedAt) {
-      const stoppedAgo = Date.now() - status.lastStoppedAt;
-      if (stoppedAgo < CRASH_RECOVERY_WINDOW_MS) {
-        // Recently crashed (handleContainerStopped already fired) -- restart
-        console.log('[PROXY] Instance stopped', stoppedAgo, 'ms ago, treating as crash recovery');
-        await stub.start();
-        return true;
-      }
-    }
-
-    return false;
+    // Gateway dead despite running status (race: crash before handleContainerStopped)
+    console.log('[PROXY] Instance status is running but container unreachable, restarting');
+    await stub.start();
+    return true;
   } catch (err) {
     console.error('[PROXY] Crash recovery failed:', err);
   }

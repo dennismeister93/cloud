@@ -7,6 +7,7 @@
   "scripts": {
     "deploy": "wrangler deploy",
     "start": "wrangler dev",
+    "dev": "wrangler dev",
     "types": "wrangler types",
     "typecheck": "tsgo --noEmit --incremental false",
     "lint": "eslint --config eslint.config.mjs --cache 'src/**/*.ts'",

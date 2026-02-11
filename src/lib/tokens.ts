@@ -16,9 +16,18 @@ export type JWTTokenExtraPayload = {
   createdOnPlatform?: string;
 };
 
+const FIVE_YEARS_IN_SECONDS = 5 * 365 * 24 * 60 * 60;
+const THIRTY_DAYS_IN_SECONDS = 30 * 24 * 60 * 60;
+
+export const TOKEN_EXPIRY = {
+  default: FIVE_YEARS_IN_SECONDS,
+  thirtyDays: THIRTY_DAYS_IN_SECONDS,
+} as const;
+
 export function generateApiToken(
   { id, api_token_pepper }: User,
-  extraPayload?: JWTTokenExtraPayload
+  extraPayload?: JWTTokenExtraPayload,
+  options?: { expiresIn?: number }
 ) {
   return jwt.sign(
     {
@@ -31,7 +40,7 @@ export function generateApiToken(
     NEXTAUTH_SECRET,
     {
       algorithm: jwtSigningAlgorithm,
-      expiresIn: '5y',
+      expiresIn: options?.expiresIn ?? FIVE_YEARS_IN_SECONDS,
     }
   );
 }
