@@ -92,7 +92,7 @@ function buildKiloAutoModel(): OpenRouterModel {
     description: KILO_AUTO_MODEL_DESCRIPTION,
     model_version_group_id: null,
     context_length: KILO_AUTO_MODEL_CONTEXT_LENGTH,
-    input_modalities: ['text'],
+    input_modalities: ['text', 'image'],
     output_modalities: ['text'],
     has_text_output: true,
     group: 'other',

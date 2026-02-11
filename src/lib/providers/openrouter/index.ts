@@ -29,7 +29,7 @@ function buildAutoModel(): OpenRouterModel {
     created: 0,
     description: KILO_AUTO_MODEL_DESCRIPTION,
     architecture: {
-      input_modalities: ['text'],
+      input_modalities: ['text', 'image'],
       output_modalities: ['text'],
       tokenizer: 'Other',
     },
