@@ -684,6 +684,23 @@ export async function createDeployment(params: {
 
   const slugInput = source.type === 'app-builder' ? null : resolved.repoName;
 
+  // Generate a slug that isn't already taken. The 4-digit suffix gives 10k
+  // combinations per prefix, so collisions are possible for popular repo names.
+  // Done before creating the worker so we don't need to clean it up on failure.
+  const MAX_SLUG_ATTEMPTS = 3;
+  let deploymentSlug: string | undefined;
+  for (let attempt = 0; attempt < MAX_SLUG_ATTEMPTS; attempt++) {
+    const candidate = generateDeploymentSlug(slugInput);
+    const check = await checkSlugAvailability(candidate);
+    if (check.available) {
+      deploymentSlug = candidate;
+      break;
+    }
+  }
+  if (deploymentSlug === undefined) {
+    return { success: false, error: 'slug_taken', message: 'This subdomain is already taken' };
+  }
+
   // Call builder API — deploys the CF worker under the internal name.
   // The worker is created once under internalWorkerName (UUID-based, always unique).
   let builderResponse: CreateDeploymentResponse;
@@ -702,23 +719,6 @@ export async function createDeployment(params: {
       code: 'INTERNAL_SERVER_ERROR',
       message: `Failed to trigger deployment: ${error instanceof Error ? error.message : String(error)}`,
     });
-  }
-
-  // Generate a slug that isn't already taken. The 4-digit suffix gives 10k
-  // combinations per prefix, so collisions are possible for popular repo names.
-  const MAX_SLUG_ATTEMPTS = 3;
-  let deploymentSlug: string | undefined;
-  for (let attempt = 0; attempt < MAX_SLUG_ATTEMPTS; attempt++) {
-    const candidate = generateDeploymentSlug(slugInput);
-    const check = await checkSlugAvailability(candidate);
-    if (check.available) {
-      deploymentSlug = candidate;
-      break;
-    }
-  }
-  if (deploymentSlug === undefined) {
-    await deployApiClient.deleteWorker(internalWorkerName).catch(() => {});
-    return { success: false, error: 'slug_taken', message: 'This subdomain is already taken' };
   }
 
   const deploymentUrl = `https://${deploymentSlug}.${DEFAULT_DEPLOYMENT_DOMAIN}`;
