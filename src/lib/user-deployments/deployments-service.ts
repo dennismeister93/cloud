@@ -17,6 +17,7 @@ import { generateGitToken as generateAppBuilderGitToken } from '@/lib/app-builde
 import { getCredentials as getAppBuilderDbCredentials } from '@/lib/app-builder/app-builder-db-proxy-client';
 import * as z from 'zod';
 import { eventSchema } from '@/lib/user-deployments/types';
+import { generateDeploymentSlug } from '@/lib/user-deployments/slug-generator';
 import type {
   Provider,
   DeploymentSource,
@@ -666,9 +667,9 @@ export async function createDeployment(params: {
 
   const resolved = await resolveSource(owner, source);
 
-  // Generate deployment slug from repository name + random suffix
-  const randomSuffix = Math.random().toString(36).substring(2, 8);
-  const deploymentSlug = `${resolved.repoName}-${randomSuffix}`.toLowerCase();
+  const deploymentSlug = generateDeploymentSlug(
+    source.type === 'app-builder' ? null : resolved.repoName
+  );
 
   // Encrypt user-provided env vars first
   const encryptedUserEnvVars = envVars && envVars.length > 0 ? encryptEnvVars(envVars) : [];
