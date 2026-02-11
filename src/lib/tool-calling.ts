@@ -22,7 +22,9 @@ export function normalizeToolCallIds(
   for (const msg of requestToMutate.messages) {
     if (msg.role === 'assistant') {
       for (const toolCall of msg.tool_calls ?? []) {
-        toolCall.id = normalizeToolCallId(toolCall.id, maxIdLength);
+        if (filter(toolCall.id)) {
+          toolCall.id = normalizeToolCallId(toolCall.id, maxIdLength);
+        }
       }
     }
     if (msg.role === 'tool' && filter(msg.tool_call_id)) {
