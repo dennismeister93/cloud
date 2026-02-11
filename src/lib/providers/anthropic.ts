@@ -84,8 +84,4 @@ export function applyAnthropicModelSettings(
 
   // anthropic doesn't allow '.' in tool call ids
   normalizeToolCallIds(requestToMutate, undefined);
-
-  if (!requestToMutate.verbosity) {
-    requestToMutate.verbosity = 'medium';
-  }
 }
