@@ -7,6 +7,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import git from '@ashishkumar472/cf-git';
 import http from '@ashishkumar472/cf-git/http/web';
+import { sanitizeGitUrl } from 'cloudflare-utils';
 import { SqliteFS } from './git/fs-adapter';
 import { MemFS } from './git/memfs';
 import { logger, withLogTags, formatError } from './utils/logger';
@@ -316,7 +317,7 @@ export class GitRepositoryDO extends DurableObject<Env> {
 
     logger.info('Pushing repository to remote', {
       id: this.ctx.id.toString(),
-      remoteUrl: remoteUrl.replace(/\/\/[^@]*@/, '//***@'), // Redact token in logs
+      remoteUrl: sanitizeGitUrl(remoteUrl),
     });
 
     try {

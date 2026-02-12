@@ -6,6 +6,7 @@
  * to clone from GitHub and schedules deletion of the internal git repo.
  */
 
+import { sanitizeGitUrl } from 'cloudflare-utils';
 import { logger } from '../utils/logger';
 import { verifyBearerToken } from '../utils/auth';
 import type { Env } from '../types';
@@ -76,7 +77,7 @@ export async function handleMigrateToGithub(
     }
 
     logger.info({ source: 'MigrateToGithubHandler', appId }, 'Pushing repository to remote', {
-      remoteUrl: remoteUrl.replace(/\/\/[^@]*@/, '//***@'),
+      remoteUrl: sanitizeGitUrl(remoteUrl),
     });
 
     const pushResult = await gitStub.pushToRemote(remoteUrl, remoteAuthToken);

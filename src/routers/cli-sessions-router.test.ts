@@ -10,12 +10,7 @@ import {
 import { CliSessionSharedState } from '@/types/cli-session-shared-state';
 import { eq, and } from 'drizzle-orm';
 import type { User, Organization } from '@/db/schema';
-import {
-  sanitizeGitUrl,
-  isValidGitUrl,
-  parseGitUrl,
-  sanitizeForPostgres,
-} from './cli-sessions-router';
+import { isValidGitUrl, parseGitUrl, sanitizeForPostgres } from './cli-sessions-router';
 
 jest.mock('@/lib/r2/cli-sessions', () => ({
   generateSignedUrls: jest.fn().mockResolvedValue({
@@ -1630,50 +1625,6 @@ describe('cli-sessions-router', () => {
 
       it('should reject non-http protocols', () => {
         expect(isValidGitUrl('ftp://github.com/repo')).toBe(false);
-      });
-    });
-
-    describe('sanitizeGitUrl', () => {
-      it('should strip credentials from HTTPS URLs', () => {
-        expect(sanitizeGitUrl('https://user:pass@github.com/org/repo')).toBe(
-          'https://github.com/org/repo'
-        );
-      });
-
-      it('should strip query params and hash from HTTPS URLs', () => {
-        expect(sanitizeGitUrl('https://github.com/org/repo?token=abc#readme')).toBe(
-          'https://github.com/org/repo'
-        );
-      });
-
-      it('should strip all sensitive info from HTTPS URLs', () => {
-        expect(sanitizeGitUrl('https://user:pass@github.com/org/repo.git?ref=main#L10')).toBe(
-          'https://github.com/org/repo.git'
-        );
-      });
-
-      it('should preserve SSH URLs without query params', () => {
-        expect(sanitizeGitUrl('git@github.com:org/repo.git')).toBe('git@github.com:org/repo.git');
-      });
-
-      it('should strip query params from SSH URLs', () => {
-        expect(sanitizeGitUrl('git@github.com:org/repo.git?ref=main')).toBe(
-          'git@github.com:org/repo.git'
-        );
-      });
-
-      it('should handle SSH URLs with subgroups', () => {
-        expect(sanitizeGitUrl('git@gitlab.com:group/subgroup/repo.git')).toBe(
-          'git@gitlab.com:group/subgroup/repo.git'
-        );
-      });
-
-      it('should return original for unparseable URLs', () => {
-        expect(sanitizeGitUrl('some-random-string')).toBe('some-random-string');
-      });
-
-      it('should handle HTTP URLs', () => {
-        expect(sanitizeGitUrl('http://github.com/org/repo')).toBe('http://github.com/org/repo');
       });
     });
 

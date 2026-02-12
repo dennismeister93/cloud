@@ -5,6 +5,7 @@ import type {
   SystemSandboxUsageEvent,
   SystemStatusEvent,
 } from './types.js';
+import { sanitizeGitUrl } from 'cloudflare-utils';
 import { logger } from './logger.js';
 import { withTimeout } from './utils/timeout.js';
 
@@ -14,20 +15,6 @@ import { withTimeout } from './utils/timeout.js';
  */
 export function sanitizeIdForPath(value: string): string {
   return value.replace(/[/:]/g, '-');
-}
-
-// Sanitize a git URL by removing any credentials (username/password) from it.
-function sanitizeGitUrlForLogging(gitUrl: string): string {
-  try {
-    const url = new URL(gitUrl);
-    // Remove username and password if present
-    url.username = '';
-    url.password = '';
-    return url.toString();
-  } catch {
-    // If URL parsing fails, return as-is (shouldn't happen with validated URLs)
-    return gitUrl;
-  }
 }
 
 const SESSION_HOME_ROOT = `/home`;
@@ -424,7 +411,7 @@ export async function cloneGitRepo(
     repoUrl = url.toString();
   }
 
-  const sanitizedGitUrl = sanitizeGitUrlForLogging(gitUrl);
+  const sanitizedGitUrl = sanitizeGitUrl(gitUrl);
   const shallow = options?.shallow ?? false;
   logger.setTags({ gitUrl: sanitizedGitUrl, workspacePath, shallow });
   logger.info('Cloning generic git repository');
@@ -485,7 +472,7 @@ export async function updateGitRemoteToken(
   newUrl.username = 'x-access-token';
   newUrl.password = gitToken;
 
-  const sanitizedGitUrl = sanitizeGitUrlForLogging(gitUrl);
+  const sanitizedGitUrl = sanitizeGitUrl(gitUrl);
   logger.setTags({ workspacePath, gitUrl: sanitizedGitUrl });
   logger.info('Updating git remote URL with new token');
 
