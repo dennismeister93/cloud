@@ -381,7 +381,7 @@ export class PreviewDO extends DurableObject<Env> {
           if (repoExists) {
             logger.debug('Repository exists, pulling latest changes');
 
-            // For GitHub repos, we need to update the remote URL with fresh token
+            // The origin URL contains an ephemeral GitHub token from the previous clone/fetch; refresh it
             if (this.persistedState.githubSource) {
               const repoUrl = await this.getRepoUrl(appId);
               await sandbox.exec(`cd /workspace && git remote set-url origin '${repoUrl}'`);
