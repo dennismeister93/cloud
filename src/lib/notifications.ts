@@ -42,6 +42,7 @@ const normalUnconditionalNotifications: KiloNotification[] = [
       actionText: 'Learn More',
       actionURL: 'https://blog.kilo.ai/p/glm-5-free-limited-time',
     },
+    suggestModelId: 'z-ai/glm-5:free',
     showIn: ['extension', 'cli'],
   },
   {
