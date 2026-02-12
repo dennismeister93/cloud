@@ -63,6 +63,12 @@ function patchReadFileTool(func: OpenAI.FunctionDefinition) {
   }
 }
 
+function appendAnthropicBetaHeader(extraHeaders: Record<string, string>, betaFlag: string) {
+  extraHeaders['x-anthropic-beta'] = [extraHeaders['x-anthropic-beta'], betaFlag]
+    .filter(Boolean)
+    .join(',');
+}
+
 function applyAnthropicStrictToolUse(
   requestToMutate: OpenRouterChatCompletionRequest,
   extraHeaders: Record<string, string>
@@ -79,12 +85,7 @@ function applyAnthropicStrictToolUse(
   }
   if (supportedToolFound) {
     console.debug('[applyAnthropicStrictToolUse] setting structured-outputs beta header');
-    extraHeaders['x-anthropic-beta'] = [
-      extraHeaders['x-anthropic-beta'],
-      'structured-outputs-2025-11-13',
-    ]
-      .filter(Boolean)
-      .join(',');
+    appendAnthropicBetaHeader(extraHeaders, 'structured-outputs-2025-11-13');
   }
 }
 
@@ -101,12 +102,7 @@ export function applyAnthropicModelSettings(
     console.debug(
       '[applyAnthropicModelSettings] setting fine-grained-tool-streaming-2025-05-14 beta header'
     );
-    extraHeaders['x-anthropic-beta'] = [
-      extraHeaders['x-anthropic-beta'],
-      'fine-grained-tool-streaming-2025-05-14',
-    ]
-      .filter(Boolean)
-      .join(',');
+    appendAnthropicBetaHeader(extraHeaders, 'fine-grained-tool-streaming-2025-05-14');
   }
 
   if (isOpusModel(requestedModel) && !requestToMutate.verbosity) {
