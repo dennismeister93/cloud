@@ -104,7 +104,10 @@ export async function handleMigrateToGithub(
     const previewId = env.PREVIEW.idFromName(appId);
     const previewStub = env.PREVIEW.get(previewId);
 
-    await previewStub.migrateToGithub({ githubRepo, userId, orgId });
+    await previewStub.setGitHubSource({ githubRepo, userId, orgId });
+
+    // Schedule internal git repo deletion after a 7-day grace period (for rollback safety)
+    await gitStub.scheduleDelete(7 * 24 * 60 * 60 * 1000);
 
     logger.info({ source: 'MigrateToGithubHandler', appId }, 'Successfully migrated to GitHub');
 

@@ -320,41 +320,6 @@ export class PreviewDO extends DurableObject<Env> {
     );
   }
 
-  /**
-   * Migrate project to GitHub: set GitHub source and schedule internal git repo deletion.
-   *
-   * This:
-   * 1. Sets the GitHub source so preview clones from GitHub
-   * 2. Destroys the sandbox so next build clones fresh from GitHub
-   * 3. Tells the GitRepositoryDO to schedule its own deletion after a grace period
-   */
-  async migrateToGithub(config: GitHubSourceConfig): Promise<void> {
-    return withLogTags(
-      { source: 'PreviewDO', tags: { appId: this.persistedState.appId ?? undefined } },
-      async () => {
-        logger.info('Migrating to GitHub', {
-          githubRepo: config.githubRepo,
-          hasOrgId: !!config.orgId,
-        });
-
-        // Set GitHub source so preview clones from GitHub
-        this.persistedState.githubSource = config;
-        await this.savePersistedState();
-
-        // Destroy sandbox so next build clones fresh from GitHub
-        await this.destroy();
-        logger.info('Sandbox destroyed after migration to GitHub');
-
-        // Tell the git repo DO to delete itself after 7 days
-        if (this.persistedState.appId) {
-          const gitId = this.env.GIT_REPOSITORY.idFromName(this.persistedState.appId);
-          const gitStub = this.env.GIT_REPOSITORY.get(gitId);
-          await gitStub.scheduleDelete(7 * 24 * 60 * 60 * 1000);
-        }
-      }
-    );
-  }
-
   async getStatus(): Promise<{ state: PreviewState; error: string | null }> {
     return withLogTags(
       { source: 'PreviewDO', tags: { appId: this.persistedState.appId ?? undefined } },
