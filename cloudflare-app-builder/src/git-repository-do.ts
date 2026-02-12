@@ -7,7 +7,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import git from '@ashishkumar472/cf-git';
 import http from '@ashishkumar472/cf-git/http/web';
-import { sanitizeGitUrl } from 'cloudflare-utils';
+import { sanitizeGitUrl } from './utils/git-url';
 import { SqliteFS } from './git/fs-adapter';
 import { MemFS } from './git/memfs';
 import { logger, withLogTags, formatError } from './utils/logger';

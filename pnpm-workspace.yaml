@@ -16,7 +16,6 @@ packages:
   - 'cloudflare-session-ingest'
   - 'cloudflare-o11y'
   - 'cloudflare-git-token-service'
-  - 'cloudflare-utils'
   - 'kiloclaw'
 
 ignoredBuiltDependencies:

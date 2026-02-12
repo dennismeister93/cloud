@@ -1,7 +1,6 @@
 import 'server-only';
 import { baseProcedure, createTRPCRouter } from '@/lib/trpc/init';
 import * as z from 'zod';
-import { sanitizeGitUrl } from 'cloudflare-utils';
 import { db } from '@/lib/drizzle';
 import { eq, and, desc, lt, or, ilike, sql, isNull, notInArray, type SQL } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
@@ -64,6 +63,26 @@ export function isValidGitUrl(url: string): boolean {
     return ['http:', 'https:'].includes(parsed.protocol);
   } catch {
     return false;
+  }
+}
+
+export function sanitizeGitUrl(url: string): string {
+  const sshMatch = url.match(/^git@([^:]+):(.+)$/);
+  if (sshMatch) {
+    const host = sshMatch[1];
+    const path = sshMatch[2].split('?')[0];
+    return `git@${host}:${path}`;
+  }
+
+  try {
+    const parsed = new URL(url);
+    parsed.username = '';
+    parsed.password = '';
+    parsed.search = '';
+    parsed.hash = '';
+    return parsed.toString();
+  } catch {
+    return url;
   }
 }
 

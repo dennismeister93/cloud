@@ -183,9 +183,6 @@ importers:
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
-      cloudflare-utils:
-        specifier: workspace:*
-        version: link:cloudflare-utils
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -445,9 +442,6 @@ importers:
       aws4fetch:
         specifier: ^1.0.20
         version: 1.0.20
-      cloudflare-utils:
-        specifier: workspace:*
-        version: link:../cloudflare-utils
       jsonwebtoken:
         specifier: ^9.0.3
         version: 9.0.3
@@ -646,9 +640,6 @@ importers:
       '@ashishkumar472/cf-git':
         specifier: 1.0.5
         version: 1.0.5
-      cloudflare-utils:
-        specifier: workspace:*
-        version: link:../cloudflare-utils
       diff:
         specifier: '>=8.0.3'
         version: 8.0.3
@@ -938,15 +929,6 @@ importers:
       wrangler:
         specifier: ^4.61.0
         version: 4.61.1(@cloudflare/workers-types@4.20260130.0)
-
-  cloudflare-utils:
-    devDependencies:
-      typescript:
-        specifier: ^5.9.3
-        version: 5.9.3
-      vitest:
-        specifier: ^3.2.4
-        version: 3.2.4(@types/debug@4.1.12)(@types/node@25.2.0)(@vitest/ui@3.2.4)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.44.0)(tsx@4.20.6)(yaml@2.8.1)
 
   cloudflare-webhook-agent-ingest:
     dependencies:
