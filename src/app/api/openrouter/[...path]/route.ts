@@ -433,6 +433,7 @@ export async function POST(request: NextRequest): Promise<NextResponseType<unkno
       requestedModel: originalModelIdLowerCased,
       request: requestBodyParsed,
       response,
+      isByok: !!userByok,
     });
     if (errorResponse) {
       return errorResponse;
