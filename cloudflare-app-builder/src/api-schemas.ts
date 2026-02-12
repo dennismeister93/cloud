@@ -140,10 +140,6 @@ export type DeleteErrorResponse = z.infer<typeof DeleteErrorResponseSchema>;
 // ============================================
 
 export const MigrateToGithubRequestSchema = z.object({
-  /** HTTPS clone URL of the target GitHub repository */
-  remoteUrl: z.string().url(),
-  /** GitHub installation token for pushing */
-  remoteAuthToken: z.string().min(1),
   githubRepo: z.string().regex(/^[^/]+\/[^/]+$/, 'Must be in "owner/repo" format'),
   userId: z.string().uuid(),
   orgId: z.string().uuid().optional(),
@@ -157,7 +153,7 @@ export const MigrateToGithubSuccessResponseSchema = z.object({
 
 export const MigrateToGithubErrorResponseSchema = z.object({
   success: z.literal(false),
-  error: z.enum(['invalid_request', 'internal_error', 'push_failed']),
+  error: z.enum(['invalid_request', 'internal_error', 'token_failed', 'push_failed']),
   message: z.string(),
 });
 

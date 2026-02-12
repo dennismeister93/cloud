@@ -6,7 +6,6 @@
  * to clone from GitHub and schedules deletion of the internal git repo.
  */
 
-import { sanitizeGitUrl } from 'cloudflare-utils';
 import { logger } from '../utils/logger';
 import { verifyBearerToken } from '../utils/auth';
 import type { Env } from '../types';
@@ -58,9 +57,29 @@ export async function handleMigrateToGithub(
       );
     }
 
-    const { remoteUrl, remoteAuthToken, githubRepo, userId, orgId } = result.data;
+    const { githubRepo, userId, orgId } = result.data;
 
-    // 1. Push internal git repo to GitHub
+    // 1. Fetch a GitHub token via git-token-service
+    const tokenResult = await env.GIT_TOKEN_SERVICE.getTokenForRepo({ githubRepo, userId, orgId });
+    if (!tokenResult.success) {
+      logger.error({ source: 'MigrateToGithubHandler', appId }, 'Failed to get GitHub token', {
+        reason: tokenResult.reason,
+      });
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'token_failed',
+          message: `Failed to get GitHub token: ${tokenResult.reason}`,
+        }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const remoteUrl = new URL(`https://github.com/${githubRepo}.git`);
+    remoteUrl.username = 'x-access-token';
+    remoteUrl.password = tokenResult.token;
+
+    // 2. Push internal git repo to GitHub
     const gitId = env.GIT_REPOSITORY.idFromName(appId);
     const gitStub = env.GIT_REPOSITORY.get(gitId);
 
@@ -77,10 +96,10 @@ export async function handleMigrateToGithub(
     }
 
     logger.info({ source: 'MigrateToGithubHandler', appId }, 'Pushing repository to remote', {
-      remoteUrl: sanitizeGitUrl(remoteUrl),
+      githubRepo,
     });
 
-    const pushResult = await gitStub.pushToRemote(remoteUrl, remoteAuthToken);
+    const pushResult = await gitStub.pushToRemote(remoteUrl.toString(), tokenResult.token);
     if (!pushResult.success) {
       logger.error({ source: 'MigrateToGithubHandler', appId }, 'Failed to push to remote', {
         error: pushResult.error,
@@ -95,7 +114,7 @@ export async function handleMigrateToGithub(
       );
     }
 
-    // 2. Switch preview to GitHub source and schedule internal repo deletion
+    // 3. Switch preview to GitHub source and schedule internal repo deletion
     logger.info({ source: 'MigrateToGithubHandler', appId }, 'Migrating preview to GitHub', {
       githubRepo,
       hasOrgId: !!orgId,

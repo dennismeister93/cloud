@@ -7,7 +7,6 @@ import { TRPCError } from '@trpc/server';
 import { eq, and, isNull } from 'drizzle-orm';
 import {
   fetchGitHubInstallationDetails,
-  generateGitHubInstallationToken,
   getRepositoryDetails,
   getInstallationSettingsUrl,
   fetchGitHubRepositoriesWithDates,
@@ -257,13 +256,9 @@ export async function migrateProjectToGitHub(
     return { success: false, error: 'repo_not_empty' };
   }
 
-  // 4. Generate GitHub token and migrate on the worker (push + preview switch + schedule repo deletion)
+  // 4. Migrate on the worker (push + preview switch + schedule repo deletion)
   try {
-    const tokenData = await generateGitHubInstallationToken(integration.platform_installation_id);
-
     const migrateResult = await appBuilderClient.migrateToGithub(projectId, {
-      remoteUrl: repoDetails.cloneUrl,
-      remoteAuthToken: tokenData.token,
       githubRepo: repoDetails.fullName,
       userId,
       orgId: owner.type === 'org' ? owner.id : undefined,
