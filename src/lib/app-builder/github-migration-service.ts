@@ -2,34 +2,42 @@ import 'server-only';
 import type { Owner } from '@/lib/integrations/core/types';
 import * as appBuilderClient from '@/lib/app-builder/app-builder-client';
 import { db } from '@/lib/drizzle';
-import { app_builder_projects, platform_integrations, deployments } from '@/db/schema';
-import { TRPCError } from '@trpc/server';
+import { app_builder_projects, deployments } from '@/db/schema';
 import { eq, and, isNull } from 'drizzle-orm';
 import {
   fetchGitHubInstallationDetails,
+  fetchGitHubRepositories,
   getRepositoryDetails,
   getInstallationSettingsUrl,
-  fetchGitHubRepositoriesWithDates,
 } from '@/lib/integrations/platforms/github/adapter';
-import { INTEGRATION_STATUS } from '@/lib/integrations/core/constants';
+import { INTEGRATION_STATUS, PLATFORM } from '@/lib/integrations/core/constants';
+import { getIntegrationForOwner } from '@/lib/integrations/db/platform-integrations';
 import { getProjectWithOwnershipCheck } from '@/lib/app-builder/app-builder-service';
 import type {
   MigrateToGitHubInput,
   MigrateToGitHubResult,
+  MigrateToGitHubErrorCode,
   CanMigrateToGitHubResult,
 } from '@/lib/app-builder/types';
 
-/**
- * Sanitize a string for use as a GitHub repository name.
- * GitHub repo names can only contain alphanumeric characters, hyphens, underscores, and periods.
- */
-function sanitizeRepoName(name: string): string {
-  return name
+class MigrationError extends Error {
+  constructor(
+    public readonly code: MigrateToGitHubErrorCode,
+    options?: ErrorOptions
+  ) {
+    super(`Migration failed: ${code}`, options);
+    this.name = 'MigrationError';
+  }
+}
+
+/** Convert a project title to a valid GitHub repository name. */
+function titleToRepoName(title: string): string {
+  return title
     .toLowerCase()
     .replace(/[^a-z0-9._-]/g, '-') // Replace invalid chars with hyphens
     .replace(/-+/g, '-') // Collapse multiple hyphens
-    .replace(/^[-.]|[-.]$/g, '') // Remove leading/trailing hyphens and dots
-    .substring(0, 100); // Truncate to 100 chars
+    .substring(0, 100) // Truncate to 100 chars
+    .replace(/^[-.]|[-.]$/g, ''); // Remove leading/trailing hyphens and dots
 }
 
 /**
@@ -44,7 +52,7 @@ export async function canMigrateToGitHub(
   owner: Owner
 ): Promise<CanMigrateToGitHubResult> {
   const project = await getProjectWithOwnershipCheck(projectId, owner);
-  const suggestedRepoName = sanitizeRepoName(project.title);
+  const suggestedRepoName = titleToRepoName(project.title);
 
   // Default values for when there's no integration
   const noIntegrationResult: CanMigrateToGitHubResult = {
@@ -73,22 +81,11 @@ export async function canMigrateToGitHub(
   }
 
   // Check for GitHub integration
-  const ownerCondition =
-    owner.type === 'org'
-      ? eq(platform_integrations.owned_by_organization_id, owner.id)
-      : eq(platform_integrations.owned_by_user_id, owner.id);
-
-  const [integration] = await db
-    .select()
-    .from(platform_integrations)
-    .where(
-      and(
-        ownerCondition,
-        eq(platform_integrations.platform, 'github'),
-        eq(platform_integrations.integration_status, INTEGRATION_STATUS.ACTIVE)
-      )
-    )
-    .limit(1);
+  const integration = await getIntegrationForOwner(
+    owner,
+    PLATFORM.GITHUB,
+    INTEGRATION_STATUS.ACTIVE
+  );
 
   if (!integration || !integration.platform_installation_id) {
     return noIntegrationResult;
@@ -106,7 +103,7 @@ export async function canMigrateToGitHub(
     const [installationDetails, settingsUrl, repos] = await Promise.all([
       fetchGitHubInstallationDetails(installationId),
       getInstallationSettingsUrl(installationId),
-      fetchGitHubRepositoriesWithDates(installationId),
+      fetchGitHubRepositories(installationId),
     ]);
 
     targetAccountName = installationDetails.account.login || targetAccountName;
@@ -114,7 +111,16 @@ export async function canMigrateToGitHub(
     repositorySelection =
       installationDetails.repository_selection === 'selected' ? 'selected' : 'all';
     installationSettingsUrl = settingsUrl;
-    availableRepos = repos;
+
+    // Map to AvailableRepo shape, sort newest first, take last 10
+    availableRepos = repos
+      .map(repo => ({
+        fullName: repo.full_name,
+        createdAt: repo.created_at,
+        isPrivate: repo.private,
+      }))
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 10);
   } catch (error) {
     console.error('Failed to fetch GitHub installation details:', error);
     // Continue with partial data
@@ -163,121 +169,78 @@ export async function migrateProjectToGitHub(
 ): Promise<MigrateToGitHubResult> {
   const { projectId, owner, userId, repoFullName } = params;
 
+  // 0. Validate ownership (throws NOT_FOUND if project doesn't exist or wrong owner)
+  await getProjectWithOwnershipCheck(projectId, owner);
+
   // 1. Atomically claim this project for migration (prevents concurrent migrations)
   // Sets migrated_at as a claim — only one concurrent caller can win.
   // We also require git_repo_full_name IS NULL so that a crashed previous attempt
   // (migrated_at set but git_repo_full_name never written) doesn't permanently block retries.
-  const projectOwnerCondition =
-    owner.type === 'org'
-      ? eq(app_builder_projects.owned_by_organization_id, owner.id)
-      : eq(app_builder_projects.owned_by_user_id, owner.id);
-
   const [project] = await db
     .update(app_builder_projects)
     .set({ migrated_at: new Date().toISOString() })
     .where(
-      and(
-        eq(app_builder_projects.id, projectId),
-        projectOwnerCondition,
-        isNull(app_builder_projects.git_repo_full_name)
-      )
+      and(eq(app_builder_projects.id, projectId), isNull(app_builder_projects.git_repo_full_name))
     )
     .returning();
 
   if (!project) {
-    // Either project not found, wrong owner, or already migrated
-    const [existing] = await db
-      .select()
-      .from(app_builder_projects)
-      .where(and(eq(app_builder_projects.id, projectId), projectOwnerCondition));
-    if (!existing) {
-      throw new TRPCError({ code: 'NOT_FOUND', message: 'Project not found' });
-    }
     return { success: false, error: 'already_migrated' };
   }
 
-  // Release the migration claim on failure
-  async function releaseMigrationClaim() {
-    await db
-      .update(app_builder_projects)
-      .set({ migrated_at: null })
-      .where(eq(app_builder_projects.id, projectId));
-  }
-
-  // 2. Get GitHub integration for the owner
-  const integrationOwnerCondition =
-    owner.type === 'org'
-      ? eq(platform_integrations.owned_by_organization_id, owner.id)
-      : eq(platform_integrations.owned_by_user_id, owner.id);
-
-  const [integration] = await db
-    .select()
-    .from(platform_integrations)
-    .where(
-      and(
-        integrationOwnerCondition,
-        eq(platform_integrations.platform, 'github'),
-        eq(platform_integrations.integration_status, INTEGRATION_STATUS.ACTIVE)
-      )
-    )
-    .limit(1);
-
-  if (!integration || !integration.platform_installation_id) {
-    await releaseMigrationClaim();
-    return { success: false, error: 'github_app_not_installed' };
-  }
-
-  // 3. Validate the target repo exists, is accessible, and is empty
-  let repoDetails: {
-    fullName: string;
-    cloneUrl: string;
-    htmlUrl: string;
-    isEmpty: boolean;
-    isPrivate: boolean;
-  } | null;
-
   try {
-    repoDetails = await getRepositoryDetails(integration.platform_installation_id, repoFullName);
-  } catch (error) {
-    console.error('Failed to get repository details:', error);
-    await releaseMigrationClaim();
-    return { success: false, error: 'internal_error' };
-  }
+    // 2. Get GitHub integration for the owner
+    const integration = await getIntegrationForOwner(
+      owner,
+      PLATFORM.GITHUB,
+      INTEGRATION_STATUS.ACTIVE
+    );
 
-  if (!repoDetails) {
-    // Repo doesn't exist or not accessible to the GitHub App
-    await releaseMigrationClaim();
-    return { success: false, error: 'repo_not_found' };
-  }
-
-  if (!repoDetails.isEmpty) {
-    // Repo has commits - must be empty for migration
-    await releaseMigrationClaim();
-    return { success: false, error: 'repo_not_empty' };
-  }
-
-  // 4. Migrate on the worker (push + preview switch + schedule repo deletion)
-  try {
-    const migrateResult = await appBuilderClient.migrateToGithub(projectId, {
-      githubRepo: repoDetails.fullName,
-      userId,
-      orgId: owner.type === 'org' ? owner.id : undefined,
-    });
-
-    if (!migrateResult.success) {
-      console.error('Migration on worker failed:', migrateResult);
-      await releaseMigrationClaim();
-      return { success: false, error: 'push_failed' };
+    if (!integration || !integration.platform_installation_id) {
+      throw new MigrationError('github_app_not_installed');
     }
-  } catch (error) {
-    console.error('Migration error:', error);
-    await releaseMigrationClaim();
-    return { success: false, error: 'push_failed' };
-  }
 
-  // 5. Update deployment if exists
-  if (project.deployment_id) {
+    // 3. Validate the target repo exists, is accessible, and is empty
+    let repoDetails: {
+      fullName: string;
+      cloneUrl: string;
+      htmlUrl: string;
+      isEmpty: boolean;
+      isPrivate: boolean;
+    } | null;
+
     try {
+      repoDetails = await getRepositoryDetails(integration.platform_installation_id, repoFullName);
+    } catch (error) {
+      throw new MigrationError('internal_error', { cause: error });
+    }
+
+    if (!repoDetails) {
+      throw new MigrationError('repo_not_found');
+    }
+
+    if (!repoDetails.isEmpty) {
+      throw new MigrationError('repo_not_empty');
+    }
+
+    // 4. Migrate on the worker (push + preview switch + schedule repo deletion)
+    try {
+      const migrateResult = await appBuilderClient.migrateToGithub(projectId, {
+        githubRepo: repoDetails.fullName,
+        userId,
+        orgId: owner.type === 'org' ? owner.id : undefined,
+      });
+
+      if (!migrateResult.success) {
+        throw new MigrationError('push_failed', { cause: migrateResult });
+      }
+    } catch (error) {
+      if (error instanceof MigrationError) throw error;
+      throw new MigrationError('push_failed', { cause: error });
+    }
+
+    // 5. Update deployment if exists
+    if (project.deployment_id) {
       await db
         .update(deployments)
         .set({
@@ -286,14 +249,9 @@ export async function migrateProjectToGitHub(
           platform_integration_id: integration.id,
         })
         .where(eq(deployments.id, project.deployment_id));
-    } catch (error) {
-      // Log error but continue with migration - deployment update is not critical
-      console.error('Failed to update deployment, continuing with migration:', error);
     }
-  }
 
-  // 6. Finalize project record (migrated_at already set by the atomic claim)
-  try {
+    // 6. Finalize project record (migrated_at already set by the atomic claim)
     await db
       .update(app_builder_projects)
       .set({
@@ -301,15 +259,25 @@ export async function migrateProjectToGitHub(
         git_platform_integration_id: integration.id,
       })
       .where(eq(app_builder_projects.id, projectId));
-  } catch (error) {
-    console.error('Failed to update project record:', error);
-    await releaseMigrationClaim();
-    return { success: false, error: 'internal_error' };
-  }
 
-  return {
-    success: true,
-    githubRepoUrl: repoDetails.htmlUrl,
-    newSessionId: project.session_id ?? '',
-  };
+    return {
+      success: true,
+      githubRepoUrl: repoDetails.htmlUrl,
+      newSessionId: project.session_id ?? '',
+    };
+  } catch (error) {
+    // Release the migration claim on any failure
+    await db
+      .update(app_builder_projects)
+      .set({ migrated_at: null })
+      .where(eq(app_builder_projects.id, projectId));
+
+    if (error instanceof MigrationError) {
+      if (error.cause) {
+        console.error(`Migration failed (${error.code}):`, error.cause);
+      }
+      return { success: false, error: error.code };
+    }
+    throw error;
+  }
 }

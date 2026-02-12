@@ -91,6 +91,7 @@ type GitHubRepository = {
   name: string;
   full_name: string;
   private: boolean;
+  created_at: string;
 };
 
 type GitHubBranch = {
@@ -129,6 +130,7 @@ export async function fetchGitHubRepositories(
           name: repo.name,
           full_name: repo.full_name,
           private: repo.private,
+          created_at: repo.created_at ?? new Date().toISOString(),
         }))
     );
 
@@ -598,62 +600,6 @@ export async function getInstallationSettingsUrl(
     return `https://github.com/organizations/${accountLogin}/settings/installations/${installationId}`;
   }
   return `https://github.com/settings/installations/${installationId}`;
-}
-
-/**
- * Fetches repositories accessible by a GitHub App installation with creation dates.
- * Sorted by creation date descending (newest first).
- * Capped at 200 repos to avoid excessive API calls for large installations.
- *
- * @param installationId - The GitHub App installation ID
- * @param appType - The type of GitHub App to use (defaults to 'standard')
- */
-export async function fetchGitHubRepositoriesWithDates(
-  installationId: string,
-  appType: GitHubAppType = 'standard'
-): Promise<
-  Array<{
-    fullName: string;
-    createdAt: string;
-    isPrivate: boolean;
-  }>
-> {
-  const tokenData = await generateGitHubInstallationToken(installationId, appType);
-  const octokit = new Octokit({ auth: tokenData.token });
-
-  const repositories: Array<{
-    fullName: string;
-    createdAt: string;
-    isPrivate: boolean;
-  }> = [];
-  let page = 1;
-  const perPage = 100;
-  const maxRepos = 200;
-
-  while (repositories.length < maxRepos) {
-    const { data } = await octokit.apps.listReposAccessibleToInstallation({
-      per_page: perPage,
-      page,
-    });
-
-    repositories.push(
-      ...data.repositories
-        .filter(repo => !repo.archived)
-        .map(repo => ({
-          fullName: repo.full_name,
-          createdAt: repo.created_at ?? new Date().toISOString(),
-          isPrivate: repo.private,
-        }))
-    );
-
-    if (data.repositories.length < perPage) break;
-    page++;
-  }
-
-  // Sort by creation date descending (newest first)
-  return repositories
-    .slice(0, maxRepos)
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 
 /**

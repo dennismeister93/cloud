@@ -141,17 +141,18 @@ export async function createProject(input: CreateProjectInput): Promise<CreatePr
       appendSystemPrompt: APP_BUILDER_APPEND_SYSTEM_PROMPT,
     });
 
-    // Save the session ID to the project
-    await db
-      .update(app_builder_projects)
-      .set({ session_id: cloudAgentSessionId })
-      .where(eq(app_builder_projects.id, projectId));
+    // Save session ID and track it atomically
+    await db.transaction(async tx => {
+      await tx
+        .update(app_builder_projects)
+        .set({ session_id: cloudAgentSessionId })
+        .where(eq(app_builder_projects.id, projectId));
 
-    // Track this session in the join table
-    await db.insert(app_builder_project_sessions).values({
-      project_id: projectId,
-      cloud_agent_session_id: cloudAgentSessionId,
-      reason: AppBuilderSessionReason.Initial,
+      await tx.insert(app_builder_project_sessions).values({
+        project_id: projectId,
+        cloud_agent_session_id: cloudAgentSessionId,
+        reason: AppBuilderSessionReason.Initial,
+      });
     });
 
     return { projectId };
