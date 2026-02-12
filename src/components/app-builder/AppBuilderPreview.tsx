@@ -21,6 +21,7 @@ import {
   Home,
   Copy,
   Check,
+  Github,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -29,6 +30,7 @@ import { useQuery } from '@tanstack/react-query';
 import { DEPLOYMENT_POLL_INTERVAL_MS } from '@/lib/user-deployments/constants';
 import { isDeploymentInProgress, type BuildStatus } from '@/lib/user-deployments/types';
 import { CloneDialog } from './CloneDialog';
+import { MigrateToGitHubDialog } from './MigrateToGitHubDialog';
 import { useProject } from './ProjectSession';
 import { toast } from 'sonner';
 
@@ -384,8 +386,9 @@ export const AppBuilderPreview = memo(function AppBuilderPreview({
 }: AppBuilderPreviewProps) {
   // Get state and manager from ProjectSession context
   const { manager, state } = useProject();
-  const { previewUrl, previewStatus, deploymentId, currentIframeUrl } = state;
+  const { previewUrl, previewStatus, deploymentId, currentIframeUrl, gitRepoFullName } = state;
   const projectId = manager.projectId;
+  const isMigrated = Boolean(gitRepoFullName);
 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [iframeKey, setIframeKey] = useState(0);
@@ -574,7 +577,30 @@ export const AppBuilderPreview = memo(function AppBuilderPreview({
         <h2 className="shrink-0 text-sm font-medium">Preview</h2>
 
         <div className="flex items-center gap-2">
-          {projectId && <CloneDialog projectId={projectId} organizationId={organizationId} />}
+          {projectId && !isMigrated && (
+            <>
+              <MigrateToGitHubDialog
+                projectId={projectId}
+                organizationId={organizationId}
+                onMigrationComplete={repoFullName => manager.setGitRepoFullName(repoFullName)}
+              />
+              <CloneDialog projectId={projectId} organizationId={organizationId} />
+            </>
+          )}
+          {isMigrated && gitRepoFullName && (
+            <Button variant="outline" size="sm" asChild>
+              <a
+                href={`https://github.com/${gitRepoFullName}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={gitRepoFullName}
+              >
+                <Github className="mr-2 h-4 w-4" />
+                GitHub
+                <ExternalLink className="ml-1.5 h-3 w-3 opacity-50" />
+              </a>
+            </Button>
+          )}
           <DeploymentControls
             state={deploymentState}
             onDeploy={handleDeploy}
