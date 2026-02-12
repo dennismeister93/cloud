@@ -19,8 +19,7 @@ function msgWithParts(
 
 function hasCacheBreakpoint(message: Message): boolean {
   if (!Array.isArray(message.content)) return false;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return message.content.some((part: any) => 'cache_control' in part);
+  return message.content.some(part => 'cache_control' in part);
 }
 
 describe('addCacheBreakpoints', () => {
